@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FBAR Magician</title>
+<link rel="stylesheet" href="/vendor/pdfjs/web/pdf_viewer.css">
+<style>
+:root{color-scheme:only light}
+body{margin:0;background:#eef1f5;color:#182437;font:15px/1.5 system-ui}
+header,#editor{box-sizing:border-box;min-width:0}
+header *,#editor *{box-sizing:border-box}
+header{padding:20px 28px;background:#fff;border-bottom:1px solid #ccd4df}
+header h1{font-size:24px;line-height:1.2;margin:0 0 12px}
+header p,#editor p{margin:8px 0;max-width:1050px}
+header a{color:#214c72}
+header button,header select,#editor button,#editor select,.file-button{font:inherit;padding:8px 12px;margin:8px 8px 0 0;border:1px solid #bbc8d5;border-radius:5px;background:#f4f7fa;color:#182437;max-width:100%}
+header button,#editor button{cursor:pointer;white-space:normal}
+header button:disabled,#editor button:disabled{opacity:.55;cursor:default}
+header button.primary{background:#214c72;color:white;border-color:#214c72}
+header input,header select,#editor input,#editor textarea,#editor select{color:#182437;-webkit-text-fill-color:#182437;background-color:#fff;caret-color:#182437;color-scheme:only light;font:inherit;max-width:100%}
+header input::placeholder,#editor input::placeholder,#editor textarea::placeholder{color:#64748b;-webkit-text-fill-color:#64748b;opacity:1}
+#editor input::selection,#editor textarea::selection{color:#182437;background:#c5e1f5}
+header :is(button,input,select,a):focus-visible,#editor :is(button,input,textarea,select,summary):focus-visible{outline:2px solid #367ba8;outline-offset:2px}
+#status{font-weight:600;color:#355c75;white-space:pre-line;overflow-wrap:anywhere}
+#editor-status{white-space:pre-line;overflow-wrap:anywhere;padding:10px 12px;background:#f0f6fa;border-radius:5px}
+#status[data-kind=error],#editor-status[data-kind=error]{color:#922b21}
+#editor-status[data-kind=error]{background:#fff1ef;border-left:4px solid #b43b30}
+header .warning{color:#805000}
+header .privacy{color:#426355;font-size:13px}
+.file-button{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:100%}
+header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-width:100%;font-size:14px}
+#editor{margin:20px 28px;padding:20px;background:white;border:1px solid #ccd4df;border-radius:8px}
+#editor h2{font-size:18px;margin:20px 0 8px}
+#editor details,header details{margin:14px 0;border:1px solid #d6dee7;border-radius:5px;padding:12px;min-width:0}
+#editor summary,header summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+#grid-scroll,#editor .grid-scroll{max-height:320px;overflow:auto;margin:12px 0;overscroll-behavior:contain}
+#editor table{border-collapse:collapse;width:100%}
+#editor th,#editor td{border:1px solid #d6dee7;padding:6px;text-align:left;vertical-align:top}
+#editor th{position:sticky;top:0;background:#edf3fa;z-index:1;font-size:13px;line-height:1.35;white-space:normal}
+#editor td :is(input,textarea,select){width:180px;min-height:36px;border:1px solid #c8d3de;border-radius:3px;font:14px/1.4 system-ui;padding:6px;background:#fff;margin:0}
+#editor .grid-scroll td:last-child,#grid-scroll td:last-child{min-width:140px}
+#editor .grid-scroll td button,#grid-scroll td button{margin:0;white-space:nowrap}
+#editor td input[data-path=FinInstName],#editor td input[data-path=AccntNumber]{width:230px}
+#editor td input[type=checkbox]{width:22px;min-height:22px;margin:7px 4px;accent-color:#214c72}
+#editor .fields{max-width:1000px;table-layout:fixed}
+#editor .fields th{position:static;width:35%;overflow-wrap:anywhere}
+#editor .fields td :is(input,textarea,select){width:100%;min-width:0}
+#editor .fields td input[type=checkbox]{width:22px}
+#editor textarea{resize:vertical}
+#editor .choice-description{display:block;margin-top:6px;font-size:13px;color:#435a70;overflow-wrap:anywhere}
+#editor .choice-description[hidden]{display:none}
+#editor .field-scroll{max-height:420px;overflow:auto;margin-top:12px}
+#editor .owner{max-height:340px;overflow:auto;margin:12px 0}
+#dob{margin:6px 10px;padding:6px;min-height:36px;border:1px solid #c8d3de;border-radius:3px}
+#dob-display{display:inline-block;color:#435a70;font-size:14px}
+#next-year{padding:8px;width:110px}
+#comparison,#notices{white-space:pre-line;overflow-wrap:anywhere}
+#comparison{padding:10px 12px;background:#f0f6fa;border-radius:5px;margin:14px 0}
+#editor .grid-hint{font-size:13px;color:#435a70}
+#preview-warning{margin:16px 28px;padding:12px;color:#805000;background:#fff6df;border:1px solid #e2ce9a;border-radius:5px}
+#pages{padding:24px;overflow:auto}
+.sheet{box-sizing:content-box;position:relative;background:white;margin:0 auto 24px;box-shadow:0 2px 10px #22334420}
+.xfaLayer{transform-origin:0 0}
+@media(max-width:700px){
+ header,#editor{margin:0;padding:16px}
+ #editor details,header details{padding:10px}
+ .file-button{display:flex;margin-right:0}
+ #editor .fields th{width:38%;font-size:13px}
+ #editor .fields td :is(input,textarea,select){font-size:16px}
+ #editor th,#editor td{padding:5px}
+ #dob{margin-left:0;display:block}
+ #pages{padding:12px}
+}
+
+[hidden]{display:none!important}
+#workbar{position:sticky;top:0;z-index:5;padding:10px 28px;background:#fff;border-bottom:1px solid #bbc8d5;box-shadow:0 2px 6px #22334415;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#workbar button,dialog button{font:inherit;padding:8px 12px;border:1px solid #bbc8d5;border-radius:5px;background:#f4f7fa;color:#182437;cursor:pointer}
+#workbar .primary,dialog .primary{background:#214c72;color:white}
+#workbar button:disabled{opacity:.55;cursor:default}
+#work-summary{flex:1 1 300px;font-size:14px}
+#editor .field-scroll,#editor .owner{max-height:none;overflow:visible}
+#editor #grid-scroll,#editor .grid-scroll{max-height:none}
+#editor .account-table{min-width:950px}
+#editor .account-table td:first-child,#editor .account-table th:first-child{position:sticky;left:0;background:#fff;z-index:1}
+#editor .account-table th:first-child{background:#edf3fa;z-index:2}
+#editor .account-table td :is(input,select){width:100%;min-width:110px}
+#editor .account-table td:first-child{min-width:220px}
+#editor .account-table td:last-child{min-width:110px}
+#editor .account-table td input[type=checkbox]{width:22px;min-width:22px}
+#editor .account-details{background:#fafcfe}
+#editor .account-details>summary{font-weight:500}
+#editor .account-detail-actions{display:flex;gap:8px;flex-wrap:wrap}
+#editor [aria-invalid=true]{border:2px solid #b43b30;background:#fff8f7}
+#issues{border:1px solid #b43b30;border-radius:6px;padding:16px;margin-bottom:20px;background:#fff8f7}
+#issues h2{margin-top:0}
+#issues button{border:0;background:transparent;color:#922b21;text-align:left;text-decoration:underline;margin:0;padding:4px}
+#issues ul{padding-left:20px;max-height:240px;overflow:auto}
+#editor .issue-badge{font-size:13px;color:#922b21;margin-left:8px}
+#editor :is(input,select,textarea,details){scroll-margin-top:150px}
+#import-guide,#handoff{padding:16px;border:1px solid #bbc8d5;border-radius:6px;background:#f0f6fa;margin-bottom:20px}
+#handoff h2,#import-guide h2{margin-top:0}
+#dob-row{margin:12px 0}
+#resume-help{font-size:13px}
+#save-note{font-size:13px;color:#435a70}
+dialog{font:15px/1.5 system-ui;color:#182437;border:1px solid #bbc8d5;border-radius:10px;padding:24px;width:min(540px,calc(100vw - 40px));box-sizing:border-box;max-height:90vh;overflow:auto}
+dialog::backdrop{background:#18243788}
+dialog h2{margin-top:0;font-size:21px}
+dialog p{white-space:pre-line}
+dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+#privacy-warning{padding:12px;background:#fff6df;border-left:4px solid #b67d18}
+:where(#workbar,dialog) :is(button,input):focus-visible{outline:2px solid #367ba8;outline-offset:3px}
+@media(max-width:700px){
+ #workbar{padding:10px 16px;gap:6px}#workbar button{font-size:13px;padding:7px 9px}
+ #work-summary{flex-basis:100%}
+ #editor .account-table,#editor .account-table tbody,#editor .account-table tr,#editor .account-table td{display:block;min-width:0;width:100%}
+ #editor .account-table thead{display:none}
+ #editor .account-table tr{border:1px solid #bbc8d5;border-radius:6px;margin-bottom:12px;padding:8px}
+ #editor .account-table td{border:0;padding:5px;position:static!important}
+ #editor .account-table td::before{content:attr(data-label);display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+ #editor .account-table td :is(input,select){width:100%;font-size:16px}
+ #editor .account-table td input[type=checkbox]{width:22px}
+ #editor #grid-scroll,#editor .grid-scroll{overflow:visible}
+ #editor .fields,#editor .fields tbody,#editor .fields tr,#editor .fields th,#editor .fields td{display:block;width:100%}
+ #editor .fields th{background:transparent;border-bottom:0;padding-bottom:0}
+ #editor .fields td{border-top:0}
+ #editor .fields tr{margin-bottom:8px}
+}
+</style>
+<header><h1>FBAR Magician</h1>
+<p>Prepare an unsigned PDF, review and sign it in Adobe Reader, then upload it yourself.</p>
+<p class="privacy">Processing stays in this browser. No uploads, analytics or automatic storage. Save your work explicitly before leaving; saved files contain sensitive information.</p>
+<p id="startup-help" role="alert">The editor must finish loading before you can choose a PDF. If you opened this HTML file directly, <a href="http://127.0.0.1:3141/">open the working local app</a> instead. Your files stay on this computer.</p>
+<noscript><p>JavaScript is required to process PDFs locally in this browser.</p></noscript>
+<button id="new" disabled>New blank draft</button><label class="file-button">Import completed FBAR <input id="import-file" type="file" accept="application/pdf,.pdf" disabled></label>
+<label class="file-button">Resume saved work <input id="resume-file" type="file" accept=".json,application/json" disabled></label><p id="resume-help">Resume a work-in-progress JSON file saved by this app. Import completed FBAR is for PDF files.</p><button id="save" hidden disabled>Export PDF.js diagnostic</button>
+<details><summary>Try synthetic data</summary><p>Invented records for testing only. Never submit these PDFs.</p><select id="count" aria-label="Synthetic account count" disabled><option>1</option><option>3</option><option selected>20</option></select><button id="load" disabled>Generate & preview</button></details>
+<p id="status" role="status" aria-live="polite">Loading the local editor…</p>
+<p class="warning">Prototype for this specific FBAR template. Adobe review and validation remain required. Browser preview is approximate and may leave birthday or dropdown labels blank.</p></header>
+<nav id="workbar" aria-label="Draft actions" hidden>
+<span id="work-summary" role="status" aria-live="polite"></span>
+<button id="save-work" disabled>Save work in progress</button><button id="undo" disabled>Undo</button>
+<button id="apply" disabled>Preview</button><button id="draft" class="primary" disabled>Check &amp; download unsigned draft</button>
+</nav>
+<section id="editor" hidden>
+<section id="import-guide" hidden aria-labelledby="import-heading"><h2 id="import-heading">Review your imported draft</h2><p id="import-summary"></p><button id="continue-year">Continue this year</button><button id="prepare-year">Prepare another year</button></section>
+<section id="issues" hidden aria-labelledby="issues-heading"><h2 id="issues-heading"></h2><p>Select an issue to go to the field. You can save unfinished work at any time.</p><ul id="issue-list"></ul></section>
+<p id="save-note" role="status">Work stays in memory until you choose to save a file.</p>
+<section id="handoff" hidden aria-labelledby="handoff-heading"><h2 id="handoff-heading">Finish in Adobe Reader</h2><p>The PDF data matches your entries. This does not mean the filing is reviewed, signed or submitted.</p><ol><li>Check that the unsigned PDF finished downloading.</li><li>Open it in Adobe Reader and review all details.</li><li>Validate, sign and save the PDF in Reader.</li><li>Upload the saved PDF yourself through the filing service.</li></ol><p>You can use Compare a saved PDF below to check its data against this draft. Comparison does not verify a signature or submission.</p></section>
+<p>Enter filer details and accounts, then check and download an unsigned PDF. Open account details for addresses and owners. Saving work in progress is available even with missing or invalid fields.</p>
+<details id="filer-section" open><summary>Filer and filing information</summary><div id="dob-row"><label>Date of birth <input id="dob" type="date"></label><span id="dob-display" aria-live="polite"></span></div><div id="filer-fields" class="field-scroll"></div></details>
+<details id="year-section"><summary>Use these accounts for a different year</summary><p>This clears maximum balances, unknown-value flags, amendment details and late-filing explanations. Check which accounts belong in the new year.</p><label>Report year <input id="next-year" inputmode="numeric" maxlength="4"></label><button id="rollover" disabled>Change year & clear annual values</button></details>
+<section id="separate-section"><h2 id="separate-heading">Separately owned accounts</h2><button id="add-row">Add account</button><p class="grid-hint">Use Details for account addresses and ownership information.</p><div id="grid-scroll" tabindex="0" aria-label="Separately owned account table"></div><div id="separate-details"></div></section>
+<div id="other-accounts"></div><details id="preparer"><summary>Third party preparer</summary><p>Complete this section when Third party preparer is checked in the filer table.</p><div id="preparer-fields" class="field-scroll"></div></details>
+<label class="file-button">Compare a saved PDF <input id="compare-file" type="file" accept="application/pdf,.pdf" disabled></label>
+<p id="editor-status" hidden></p>
+<div id="comparison" role="status">Every download is parsed again and compared against the table.</div><p id="notices"></p>
+</section><p id="preview-warning" hidden>Preview is out of date. Choose Preview to see your latest edits.</p><main id="pages" aria-label="Read only approximate PDF preview"></main>
+<dialog id="action-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-message"><h2 id="dialog-title"></h2><p id="dialog-message"></p><p id="privacy-warning" hidden></p><div class="dialog-actions" id="dialog-actions"></div></dialog>
+<script src="./bootstrap.js"></script></html>

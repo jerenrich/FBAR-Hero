@@ -1,0 +1,13 @@
+{
+  "name": "fbar-magician",
+  "version": "0.0.1",
+  "private": true,
+  "description": "FBAR Magician local editor and XFA writer prototype with data-only import and export comparison",
+  "dependencies": {
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.3.289"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

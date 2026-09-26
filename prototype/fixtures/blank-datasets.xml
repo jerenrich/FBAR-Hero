@@ -1,0 +1,193 @@
+
+<xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"
+><xfa:data xfa:dataNode="dataGroup"
+/><dd:dataDescription xmlns:dd="http://ns.adobe.com/data-description/" dd:name="BSAForm"
+><ffbar:BSAForm xmlns:ffbar="http://www.fincen.gov/bsa/ffbar/2011-06-01"
+><ffbar:NoRegContactInformation dd:minOccur="0" dd:nullType="exclude"
+><noreg:Email xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:ConfirmedEmail xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:FirstName xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:LastName xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:PhoneNumber xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:RegReq xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><noreg:RegReqAgree xmlns:noreg="http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/></ffbar:NoRegContactInformation
+><ffbar:EFileSubmissionInformation
+><est:FilingName xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01"
+/><est:FilingType xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01"
+/><est:VersionNumber xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01"
+/><est:SpecificationVersion xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><est:NumForms xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01" dd:minOccur="0" dd:nullType="exclude"
+/><est:SubmitUrl xmlns:est="http://www.fincen.gov/bsa/efile-submission-types/2009-01-01"
+/></ffbar:EFileSubmissionInformation
+><ffbar:SubmissionInformation
+><ucc:SignatureTitle xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:SignatureDate xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:SubmissionInformation
+><ffbar:FilerInformation
+><ffbar:CalendarYear
+/><ffbar:AmendToPriorReports
+/><ffbar:TypeOfFiler
+/><ffbar:FilerOther
+/><ffbar:TIN
+/><ffbar:TINTYPE
+/><ffbar:ForeignId
+><ffbar:ForeignIdType
+/><ffbar:OtherIDDesc
+/><ffbar:IdNumber
+/><ffbar:IssueCountry
+/></ffbar:ForeignId
+><ffbar:DOB
+/><ffbar:LastNameOrNameOfOrg
+/><ffbar:FirstName
+/><ffbar:MiddleName
+/><ffbar:Suffix
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+><ffbar:FIInterestIn25OrMore
+/><ffbar:totalNumFIAccnts
+/><ffbar:SigAuth25OrMore
+/><ffbar:totalNumSigAuthAccnts
+/><ucc:DocumentControlNumber xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ffbar:FilerSignature
+/><ffbar:PaidPreparer
+/><ffbar:LateFilingReason
+/></ffbar:FilerInformation
+><ffbar:PaidPreparerInformation dd:minOccur="0"
+><ffbar:LastName
+/><ffbar:FirstName
+/><ffbar:MiddleName
+/><ffbar:SelfEmployed
+/><ffbar:TIN
+/><ffbar:TINTYPE
+/><ffbar:TelephoneNumber
+/><ffbar:TelephoneExt
+/><ffbar:FirmName
+/><ffbar:EIN
+/><ffbar:EINType
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+></ffbar:PaidPreparerInformation
+><ffbar:FinAcctOwnedSeparately dd:minOccur="0" dd:maxOccur="-1"
+><ffbar:MaximumAccntValue
+/><ffbar:MaximumAccntUnkn
+/><ffbar:AccountType
+/><ffbar:OtherDesc
+/><ffbar:FinInstName
+/><ffbar:AccntNumber
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+></ffbar:FinAcctOwnedSeparately
+><ffbar:FinAcctOwnedJointly dd:minOccur="0" dd:maxOccur="-1"
+><ffbar:MaximumAccntValue
+/><ffbar:MaximumAccntUnkn
+/><ffbar:AccountType
+/><ffbar:OtherDesc
+/><ffbar:FinInstName
+/><ffbar:AccntNumber
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+><ffbar:NOofJointOwners
+/><ffbar:PrincipalJointOwner
+><ffbar:OwnerEntityIndicator
+/><ffbar:TIN
+/><ffbar:TINTYPEU
+/><ffbar:LastName
+/><ffbar:FirstName
+/><ffbar:MiddleName
+/><ffbar:Suffix
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+></ffbar:PrincipalJointOwner
+></ffbar:FinAcctOwnedJointly
+><ffbar:NoFinInterestFinAcctOwned dd:minOccur="0" dd:maxOccur="-1"
+><ffbar:MaximumAccntValue
+/><ffbar:MaximumAccntUnkn
+/><ffbar:AccountType
+/><ffbar:OtherDesc
+/><ffbar:FinInstName
+/><ffbar:AccntNumber
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+><ffbar:NoInterestAcctOwner dd:maxOccur="-1"
+><ffbar:OwnerEntityIndicator
+/><ffbar:TIN
+/><ffbar:TINTYPEU
+/><ffbar:LastName
+/><ffbar:FirstName
+/><ffbar:MiddleName
+/><ffbar:Suffix
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+><ffbar:FilerTitle
+/></ffbar:NoInterestAcctOwner
+></ffbar:NoFinInterestFinAcctOwned
+><ffbar:ConsolidatedAcct dd:minOccur="0" dd:maxOccur="-1"
+><ffbar:MaximumAccntValue
+/><ffbar:MaximumAccntUnkn
+/><ffbar:AccountType
+/><ffbar:OtherDesc
+/><ffbar:FinInstName
+/><ffbar:AccntNumber
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+><ffbar:ConsolidateAcctOwner dd:maxOccur="-1"
+><ffbar:TIN
+/><ffbar:TINTYPE
+/><ffbar:CorporateName
+/><ffbar:Address
+><ucc:Address xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:City xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:State xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:ZIP xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/><ucc:Country xmlns:ucc="http://www.fincen.gov/bsa/ucommon-components/2011-06-01"
+/></ffbar:Address
+></ffbar:ConsolidateAcctOwner
+></ffbar:ConsolidatedAcct
+><ffbar:LatefilingNarrative dd:minOccur="0"
+><ffbar:ExplanationOrDescription
+/></ffbar:LatefilingNarrative
+></ffbar:BSAForm
+></dd:dataDescription
+></xfa:datasets
+>

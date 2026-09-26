@@ -1,0 +1,101 @@
+# FBAR Magician prototype
+
+FBAR Magician is a local editor prototype that exports one tested template and imports compatible prior variants as data only. It supports data-only import, all cataloged input tables, year rollover, checked unsigned export and comparison with a saved PDF. Final review/signing happens in Adobe Reader. All QA fixture data is invented. **Never submit these PDFs. Never pass a personal PDF to the public SDK demo.**
+
+Synthetic text values use only ASCII letters, digits and spaces. This user preference is recorded in [AGENTS.md](../AGENTS.md) and applies to new fixtures and negative-test data as well.
+
+The [PDF.js report](../output/fbar-pdfjs-feasibility.md) explains the free draft/preview experiment. The earlier [Foxit resolution report](../output/fbar-export-feasibility.md) covers the commercial signing experiment.
+
+## PDF.js local table experiment
+
+Install the dependencies with `npm --prefix prototype install` from the repository root, using Node.js 22.13 or later. Then run:
+
+```sh
+node prototype/pdfjs/server.cjs
+```
+
+Open `http://127.0.0.1:3141` and start a blank draft or import a completed FBAR locally. Synthetic fixtures are available under Try synthetic data. See the [current workflow](../output/fbar-local-workflow.md) for import, rollover, comparisons, native qualification and limits. Choose Preview to refresh the read-only preview, or download an unsigned writer draft (download also applies pending table edits). PDF.js's own diagnostic export is hidden unless `?diagnostics=1` is added: it loses XML namespaces and does not preserve all visible edits. Embedded Sign/Validate/+ controls do not work in this viewer. This is not a filing application.
+
+All document processing runs in the browser. The loopback server serves static assets only. To reproduce the browser experiment and independent verification, use installed Google Chrome and Python with `pypdf==6.10.0`:
+
+```sh
+node prototype/scripts/pdfjs-test.cjs
+python3 prototype/scripts/verify_pdfjs.py
+```
+
+The test blocks external requests, exercises 1/3/20-account layouts, edits the table to 24 accounts, downloads the draft, and characterizes native-save failures. The verifier checks 209 populated values, XML namespaces, account count and template preservation. A passing characterization test includes expected failures of native PDF.js export. Outputs in `results/pdfjs/` are synthetic QA artifacts.
+
+`FBAR_PDFJS_DIST` optionally points to an extracted `pdfjs-dist` package instead of the installed package. No Foxit service or license is used by this test.
+
+Writer downloads now include a checksummed XFA state packet for the visible birthday. Native Reader tests confirmed two different DOBs appear without manual entry and survive field validation, save and reopen with all 177 input values intact. PDF.js's preview still shows a blank birthday. Details and reproduction: [Adobe handoff](../output/fbar-reader-handoff.md); tests: `dob-state-test.cjs`, `verify_dob_state.py`, and macOS `adobe_dob_test.py`.
+
+The app enables `restoreAllAddresses` to restore filer, account, owner and preparer address choices; the earlier Part II option remains available for existing tests. The [quality review](../output/fbar-quality-review.md) records three native Reader address round trips and remaining limitations. Run the following from the repository root; the Adobe test requires macOS and the installed desktop Adobe application:
+
+```sh
+node prototype/scripts/address-state-test.cjs
+node prototype/scripts/audit-ui-test.cjs
+python3 prototype/scripts/verify_audit_ui.py
+python3 prototype/scripts/adobe_address_test.py
+python3 prototype/scripts/verify_synthetic_data.py
+```
+
+Run the synthetic data policy checker after generating QA artifacts. It examines business values, excluding original template/code-list content and allowing the exact required official version metadata.
+
+The latest complete browser workflow is exercised by `local-workflow-test.cjs`; `adobe_branch_test.py` checks representative joint, signature-authority, preparer and consolidated cases in Reader. Signing evidence and scope are recorded in the current workflow report.
+
+## Contents
+
+- `xfa-packet-writer.mjs`: browser JavaScript that appends a datasets update to one fingerprinted public blank PDF. Preserves the original bytes and template. It does not render or sign by itself.
+- `foxit-xfa-adapter.mjs`: experimental bridge to native XFA widget events. Synchronizes the visible DOB and country-dependent requirements; invokes original Sign/Validate buttons. It depends on internal SDK interfaces requiring vendor support before production.
+- `fixtures/`: public blank template, extracted schema/template and invented XML for 1, 3 and 20 separately owned accounts. No values from the user's completed PDF.
+- `scripts/`: fixture generation, offline browser tests, synthetic SDK integration and independent verification.
+- `results/`: synthetic engineering PDFs, screenshots, JSON evidence and logs. These are QA artifacts, not user filing outputs.
+
+## Reproduce
+
+Use Node.js 22.13 or later, Python 3.12 with `pypdf==6.10.0`, and installed Google Chrome. The JavaScript dependencies are pinned in `package.json`. Install with `npm --prefix prototype install` from the repository root. The browser SDK tests use Foxit's public demo and therefore need an initial network connection; no SDK license or commercial runtime is bundled here.
+
+Run these commands from the repository root:
+
+```sh
+python3 prototype/scripts/make-synthetic.py
+node prototype/scripts/browser-packet-test.cjs
+node prototype/scripts/final-engine-test.cjs
+node prototype/scripts/final-reopen-test.cjs
+python3 prototype/scripts/verify_outputs.py
+```
+
+The browser writer test loads local dependencies, switches the browser offline, writes 1-, 3- and 20-account PDFs, and records all subsequent requests. The signing test substitutes the invented 20-account PDF for the demo's sample document, synchronizes fields, warms the save module, switches offline, and exercises the original signing acknowledgment. Its automatic acknowledgment is **test-only**; a production app must leave that action to the user.
+
+The reopen test starts another browser session, inventories XFA widget values on every generated page, captures selected pages, and saves again. The Python verifier reads the PDF object graph and full concatenated XDP independently of the browser writer, checks expected populated values and account counts, and checks saved signing/DOB state. It asserts that template bytes and the original PDF prefix are preserved. It does not verify the Reader usage-rights signature or government acceptance.
+
+Demo page consent dialogs, asset versions and font prompts can change. The test scripts are intentionally tied to the evaluated demo setup; this is not the application's proposed deployment. For a real app, obtain and self-host the licensed runtime and replace its internal widget bridge with a supported integration.
+
+## Measured scope
+
+- Three data-writing fixtures passed with zero requests while writing offline.
+- The 20-account individual/UK-address fixture completed the native signing workflow and offline save.
+- After a fresh reopen and second save, 177 populated input values, 20 account instances, the visible DOB, signing flag and timestamp remained correct.
+- The viewer generated 13 pages. Account data was legible; counter labels and some footer text showed layout defects with the demo's font configuration.
+- Parts III–V, nested owners, preparers and special reporting branches still need equivalent tests.
+- A fully self-hosted distribution, licensing behavior, browser matrix, Reader rights and FinCEN acceptance remain production qualification work.
+
+`node prototype/scripts/compatible-import-test.cjs` checks compatible prior-form layouts, recognized viewer metadata, trusted-template export, incompatible binding/data rejection, and retrying the same file after an error. Its fixtures contain only invented values from the public blank.
+
+## Opening the editor
+
+Use `http://127.0.0.1:3141/` while the local server is running. Opening `pdfjs/index.html` directly as a file cannot load the editor modules. The file copy now shows a recovery link and disables file selection. Startup also keeps entry controls disabled until the PDF library and app are ready, and displays a recovery message if either fails to load. Run `node prototype/scripts/startup-test.cjs` to check file-mode recovery, startup failures and synthetic imports through both HTTP entry paths.
+
+## Editor usability regression checks
+
+Run `node prototype/scripts/ui-review-test.cjs` for desktop and narrow-screen layouts in light and dark mode, readable dropdown labels and dates, stale preview notices, the unsaved-change warning after preview, preserved panel/scroll state, and readable validation feedback. Screenshots and results use only synthetic data in `results/ui-review/`. The editor styles are scoped away from the PDF preview. A preview does not save the draft; use Save work in progress or Check & download unsigned draft before leaving the page.
+
+## Save and resume unfinished work
+
+**Save work in progress** downloads a versioned JSON file even when required fields are missing or values are invalid. Before saving, a dialog explicitly explains that this is a saved copy of the user's work, describes how to resume it, and warns that the unencrypted file contains personal and financial information. It covers shared devices and folders, cloud-synced Downloads folders, and choosing a private location. Saving requires the explicit **Save sensitive work file** action. No automatic browser storage or network upload is added.
+
+Use **Resume saved work** to load that JSON file. Resuming validates the format and schema against the trusted blank and preserves incomplete business values without dropdown normalization. Signed state is never restored. A PDF remains an independent checked export and goes through **Import completed FBAR** when reopened. The app can request a download but cannot confirm that the browser saved it; users are told to check their downloads. Save-before-replacement additionally asks the user to confirm the downloaded copy is available.
+
+The sticky action bar shows report year, account count and unsaved changes. Validation links open the exact affected field and add issue counts to sections. Account grids contain key values; addresses and owners appear in expandable details, with stacked account cards on narrow screens. Conditional sections hide unused empty fields; existing populated values remain visible to avoid concealing imported data. Undo retains the last 30 edits in memory, including account/owner removal and year rollover. New/import/resume actions protect unsaved edits, and rollover requires confirmation of the affected account count and cleared values. Import offers continuing the detected year or preparing another year. Checked PDF downloads show the Reader review/sign/save/upload checklist separately from data-comparison success.
+
+Run `node prototype/scripts/usability-test.cjs` for incomplete save/resume round trips, privacy disclosure and cancellation, destructive-action protection, undo, exact field navigation, conditional fields, guided import/export, responsive layouts, and checks for absent browser storage and external requests. Synthetic screenshots and evidence are in `results/usability/`. `verify_synthetic_data.py` includes saved work JSON datasets in its policy checks.

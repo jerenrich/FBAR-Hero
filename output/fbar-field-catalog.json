@@ -1,0 +1,2243 @@
+{
+  "purpose": "Input column mapping, extracted from template metadata only. No personal values.",
+  "source_form_version": "1.0.2",
+  "namespaces": {
+    "xfa": "http://www.xfa.org/schema/xfa-data/1.0/",
+    "fbar": "http://www.fincen.gov/bsa/ffbar/2011-06-01",
+    "efile": "http://www.fincen.gov/bsa/efile-submission-types/2009-01-01",
+    "common": "http://www.fincen.gov/bsa/ucommon-components/2011-06-01",
+    "dd": "http://ns.adobe.com/data-description/",
+    "contact": "http://www.fincen.gov/bsa/no-reg-contact-information/2009-01-01"
+  },
+  "data_root": "xfa:datasets/xfa:data/fbar:BSAForm",
+  "warning": "Use qualified_xml_path and namespace URIs for serialization. xml_path omits prefixes for readability. [*] denotes repeated nodes. Requiredness is conditional.",
+  "app_only_columns": {
+    "Filing": [
+      "filing_id"
+    ],
+    "Accounts": [
+      "account_id",
+      "filing_id",
+      "ownership_category",
+      "record_kind",
+      "review_status"
+    ],
+    "Owners": [
+      "owner_id",
+      "account_id",
+      "owner_role",
+      "owner_order"
+    ],
+    "Preparer": [
+      "filing_id"
+    ]
+  },
+  "fields": [
+    {
+      "table": "Filing",
+      "column": "filing_name",
+      "xml_path": "BSAForm/EFileSubmissionInformation/FilingName",
+      "caption": "Filing name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "40"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/FilingName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:EFileSubmissionInformation/efile:FilingName"
+    },
+    {
+      "table": "System",
+      "column": "specification_version",
+      "xml_path": "BSAForm/EFileSubmissionInformation/SpecificationVersion",
+      "caption": "",
+      "value_constraints": {
+        "text": {}
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/SpecificationVersion"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:EFileSubmissionInformation/efile:SpecificationVersion"
+    },
+    {
+      "table": "Filing",
+      "column": "late_filing_reason",
+      "xml_path": "BSAForm/FilerInformation/LateFilingReason",
+      "caption": "If this report is being filed late, select the reason for filing late",
+      "value_constraints": {
+        "text": {}
+      },
+      "enum": [
+        {
+          "label": "Forgot to file",
+          "xml_value": "A"
+        },
+        {
+          "label": "Did not know that I had to file",
+          "xml_value": "B"
+        },
+        {
+          "label": "Thought account balance was below reporting threshold",
+          "xml_value": "C"
+        },
+        {
+          "label": "Did not know my account qualifies as foreign",
+          "xml_value": "D"
+        },
+        {
+          "label": "Account statement not received in time",
+          "xml_value": "E"
+        },
+        {
+          "label": "Account statement lost (replacement requested)",
+          "xml_value": "F"
+        },
+        {
+          "label": "Late receiving missing required account information",
+          "xml_value": "G"
+        },
+        {
+          "label": "Unable to obtain joint spouse signature in time",
+          "xml_value": "H"
+        },
+        {
+          "label": "Unable to access BSA E-filing system",
+          "xml_value": "I"
+        },
+        {
+          "label": "Other (Please provide explanation below)",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Header/LateReasonSub/ReasonForlate"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:LateFilingReason"
+    },
+    {
+      "table": "Filing",
+      "column": "late_filing_explanation",
+      "xml_path": "BSAForm/LatefilingNarrative/ExplanationOrDescription",
+      "caption": "Explanation",
+      "value_constraints": {
+        "text": {
+          "maxChars": "750"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/Narrative/ExplanationOrDescription"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:LatefilingNarrative/fbar:ExplanationOrDescription"
+    },
+    {
+      "table": "System",
+      "column": "submission_url",
+      "xml_path": "BSAForm/EFileSubmissionInformation/SubmitUrl",
+      "caption": "SubmitUrl",
+      "value_constraints": {
+        "text": {}
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/SubmitUrl"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:EFileSubmissionInformation/efile:SubmitUrl"
+    },
+    {
+      "table": "System",
+      "column": "submission_type",
+      "xml_path": "BSAForm/EFileSubmissionInformation/FilingType",
+      "caption": "Submission Type",
+      "value_constraints": {
+        "text": {}
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/FilingType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:EFileSubmissionInformation/efile:FilingType"
+    },
+    {
+      "table": "System",
+      "column": "form_version",
+      "xml_path": "BSAForm/EFileSubmissionInformation/VersionNumber",
+      "caption": "",
+      "value_constraints": {
+        "text": {}
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Header/VersionNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:EFileSubmissionInformation/efile:VersionNumber"
+    },
+    {
+      "table": "Filing",
+      "column": "report_year",
+      "xml_path": "BSAForm/FilerInformation/CalendarYear",
+      "caption": "1 This report is for calendar year ended 12/31",
+      "value_constraints": {
+        "text": {
+          "maxChars": "4"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/FilingInfoSub/CalYear"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:CalendarYear"
+    },
+    {
+      "table": "Filing",
+      "column": "is_amendment",
+      "xml_path": "BSAForm/FilerInformation/AmendToPriorReports",
+      "caption": "Amended",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/FilingInfoSub/Amended"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:AmendToPriorReports"
+    },
+    {
+      "table": "Filing",
+      "column": "prior_report_bsa_id",
+      "xml_path": "BSAForm/FilerInformation/DocumentControlNumber",
+      "caption": "Prior Report BSA Identifier",
+      "value_constraints": {
+        "text": {
+          "maxChars": "14"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/FilingInfoSub/BSAId"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/common:DocumentControlNumber"
+    },
+    {
+      "table": "Filing",
+      "column": "filer_type",
+      "xml_path": "BSAForm/FilerInformation/TypeOfFiler",
+      "caption": "2 Type of filer",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Individual",
+          "xml_value": "A"
+        },
+        {
+          "label": "Partnership",
+          "xml_value": "B"
+        },
+        {
+          "label": "Corporation",
+          "xml_value": "C"
+        },
+        {
+          "label": "Consolidated",
+          "xml_value": "D"
+        },
+        {
+          "label": "Fiduciary or Other",
+          "xml_value": "E"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/FilerID/FilerType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:TypeOfFiler"
+    },
+    {
+      "table": "Filing",
+      "column": "filer_type_other_description",
+      "xml_path": "BSAForm/FilerInformation/FilerOther",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/FilerID/FidOtherDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:FilerOther"
+    },
+    {
+      "table": "Filing",
+      "column": "tax_id",
+      "xml_path": "BSAForm/FilerInformation/TIN",
+      "caption": "3 U.S. Taxpayer Identification Number",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/TINSubForm/TIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:TIN"
+    },
+    {
+      "table": "Filing",
+      "column": "tax_id_type",
+      "xml_path": "BSAForm/FilerInformation/TINTYPE",
+      "caption": "3a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "EIN",
+          "xml_value": "A"
+        },
+        {
+          "label": "SSN/ITIN",
+          "xml_value": "B"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/TINSubForm/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:TINTYPE"
+    },
+    {
+      "table": "Filing",
+      "column": "foreign_id_type",
+      "xml_path": "BSAForm/FilerInformation/ForeignId/ForeignIdType",
+      "caption": "a Type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Passport",
+          "xml_value": "A"
+        },
+        {
+          "label": "Foreign TIN",
+          "xml_value": "B"
+        },
+        {
+          "label": "Other",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/PassportOthersub/AccountType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:ForeignId/fbar:ForeignIdType"
+    },
+    {
+      "table": "Filing",
+      "column": "foreign_id_other_description",
+      "xml_path": "BSAForm/FilerInformation/ForeignId/OtherIDDesc",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/PassportOthersub/otherDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:ForeignId/fbar:OtherIDDesc"
+    },
+    {
+      "table": "Filing",
+      "column": "foreign_id_number",
+      "xml_path": "BSAForm/FilerInformation/ForeignId/IdNumber",
+      "caption": "b Number",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/PassportOthersub/Number"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:ForeignId/fbar:IdNumber"
+    },
+    {
+      "table": "Filing",
+      "column": "foreign_id_issuing_country",
+      "xml_path": "BSAForm/FilerInformation/ForeignId/IssueCountry",
+      "caption": "c Country/Region of issue",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/PassportOthersub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:ForeignId/fbar:IssueCountry"
+    },
+    {
+      "table": "Filing",
+      "column": "date_of_birth",
+      "xml_path": "BSAForm/FilerInformation/DOB",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/DobLastSub/dateOfBirthBindField"
+      ],
+      "encoding": "MMDDYYYY in this XFA template; do not use the separate batch XML YYYYMMDD convention.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:DOB"
+    },
+    {
+      "table": "Filing",
+      "column": "last_name_or_organization_name",
+      "xml_path": "BSAForm/FilerInformation/LastNameOrNameOfOrg",
+      "caption": "6 Last name or organization's name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/DobLastSub/LastName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:LastNameOrNameOfOrg"
+    },
+    {
+      "table": "Filing",
+      "column": "first_name",
+      "xml_path": "BSAForm/FilerInformation/FirstName",
+      "caption": "7 First name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/FirstName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:FirstName"
+    },
+    {
+      "table": "Filing",
+      "column": "middle_name",
+      "xml_path": "BSAForm/FilerInformation/MiddleName",
+      "caption": "8 Middle name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/MiddleName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:MiddleName"
+    },
+    {
+      "table": "Filing",
+      "column": "suffix",
+      "xml_path": "BSAForm/FilerInformation/Suffix",
+      "caption": "8a Suffix",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/Suffix"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Suffix"
+    },
+    {
+      "table": "Filing",
+      "column": "street_address",
+      "xml_path": "BSAForm/FilerInformation/Address/Address",
+      "caption": "9 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Address/common:Address"
+    },
+    {
+      "table": "Filing",
+      "column": "city",
+      "xml_path": "BSAForm/FilerInformation/Address/City",
+      "caption": "10 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Address/common:City"
+    },
+    {
+      "table": "Filing",
+      "column": "state_province",
+      "xml_path": "BSAForm/FilerInformation/Address/State",
+      "caption": "11 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Address/common:State"
+    },
+    {
+      "table": "Filing",
+      "column": "postal_code",
+      "xml_path": "BSAForm/FilerInformation/Address/ZIP",
+      "caption": "12 ZIP/postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Filing",
+      "column": "country_code",
+      "xml_path": "BSAForm/FilerInformation/Address/Country",
+      "caption": "13 Country/Region",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/CountryIndividual"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:Address/common:Country"
+    },
+    {
+      "table": "Filing",
+      "column": "financial_interest_25_or_more",
+      "xml_path": "BSAForm/FilerInformation/FIInterestIn25OrMore",
+      "caption": "Yes",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Yes",
+          "xml_value": "A"
+        },
+        {
+          "label": "No",
+          "xml_value": "B"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/InterestAccts/InterestIn25OrMoreYes",
+        "/#template/BSAForm/Part1/NameSub/InterestAccts/InterestIn25OrMoreNo"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:FIInterestIn25OrMore"
+    },
+    {
+      "table": "Filing",
+      "column": "financial_interest_account_count",
+      "xml_path": "BSAForm/FilerInformation/totalNumFIAccnts",
+      "caption": "Enter number of accounts",
+      "value_constraints": {
+        "text": {
+          "maxChars": "4"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/NoOfAccts"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:totalNumFIAccnts"
+    },
+    {
+      "table": "Filing",
+      "column": "signature_authority_25_or_more",
+      "xml_path": "BSAForm/FilerInformation/SigAuth25OrMore",
+      "caption": "Yes",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Yes",
+          "xml_value": "A"
+        },
+        {
+          "label": "No",
+          "xml_value": "B"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/SigAuthAcctns/SigAuthIn25OrMoreYes",
+        "/#template/BSAForm/Part1/NameSub/SigAuthAcctns/SigAuthIn25OrMoreNo"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:SigAuth25OrMore"
+    },
+    {
+      "table": "Filing",
+      "column": "signature_authority_account_count",
+      "xml_path": "BSAForm/FilerInformation/totalNumSigAuthAccnts",
+      "caption": "Enter number of accounts",
+      "value_constraints": {
+        "text": {
+          "maxChars": "4"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part1/NameSub/NoOfSigAuthAccts"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:totalNumSigAuthAccnts"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_usd",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/MaximumAccntValue",
+      "caption": "15 Maximum account value",
+      "value_constraints": {
+        "decimal": {
+          "fracDigits": "0",
+          "leadDigits": "15"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/secHeaderSub/MaxAcctValue"
+      ],
+      "encoding": "Whole USD integer as decimal text, at most 15 digits in template; unknown uses a separate checkbox.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:MaximumAccntValue"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_unknown",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/MaximumAccntUnkn",
+      "caption": "15a Maximum account value unknown",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part2/secHeaderSub/MaxAccntUnknown"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:MaximumAccntUnkn"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/AccountType",
+      "caption": "16 Type of account",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Bank",
+          "xml_value": "A"
+        },
+        {
+          "label": "Securities",
+          "xml_value": "B"
+        },
+        {
+          "label": "Other",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part2/secHeaderSub/AccountType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:AccountType"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type_other_description",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/OtherDesc",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/secHeaderSub/otherAcctDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:OtherDesc"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_name",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/FinInstName",
+      "caption": "17 Financial institution name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/FISub/FIAcctName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:FinInstName"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_number",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/AccntNumber",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "40"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/AcctNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:AccntNumber"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_street_address",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/Address/Address",
+      "caption": "19 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_city",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/Address/City",
+      "caption": "20 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_country_code",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/Address/Country",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_state_province",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/Address/State",
+      "caption": "21 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_postal_code",
+      "xml_path": "BSAForm/FinAcctOwnedSeparately[*]/Address/ZIP",
+      "caption": "22 Foreign postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part2/AddressSub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedSeparately[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_usd",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/MaximumAccntValue",
+      "caption": "15 Maximum account value",
+      "value_constraints": {
+        "decimal": {
+          "fracDigits": "0",
+          "leadDigits": "15"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/secHeaderSub/MaxAcctValue"
+      ],
+      "encoding": "Whole USD integer as decimal text, at most 15 digits in template; unknown uses a separate checkbox.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:MaximumAccntValue"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_unknown",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/MaximumAccntUnkn",
+      "caption": "15a Maximum account value unknown",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/secHeaderSub/MaxAccntUnknown"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:MaximumAccntUnkn"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/AccountType",
+      "caption": "16 Type of account",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Bank",
+          "xml_value": "A"
+        },
+        {
+          "label": "Securities",
+          "xml_value": "B"
+        },
+        {
+          "label": "Other",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/secHeaderSub/AccountType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:AccountType"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type_other_description",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/OtherDesc",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/secHeaderSub/otherAcctDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:OtherDesc"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_name",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/FinInstName",
+      "caption": "17 Financial institution name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/FISub/FIAcctName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:FinInstName"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_number",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/AccntNumber",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "40"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/AcctNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:AccntNumber"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_street_address",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/Address/Address",
+      "caption": "19 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_city",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/Address/City",
+      "caption": "20 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_state_province",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/Address/State",
+      "caption": "21 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_postal_code",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/Address/ZIP",
+      "caption": "22 Foreign postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_country_code",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/Address/Country",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Accounts",
+      "column": "joint_owner_count_excluding_filer",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/NOofJointOwners",
+      "caption": "24 Number of joint owners",
+      "value_constraints": {
+        "text": {
+          "maxChars": "3"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/partSub/AddressSub/NoJointOwner"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:NOofJointOwners"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/TIN",
+      "caption": "25 Taxpayer Identification Number (TIN)",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/SecPart3/TIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:TIN"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id_type",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/TINTYPEU",
+      "caption": "25 a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "EIN",
+          "xml_value": "A"
+        },
+        {
+          "label": "SSN/ITIN",
+          "xml_value": "B"
+        },
+        {
+          "label": "Foreign",
+          "xml_value": "C"
+        },
+        {
+          "label": "Unknown",
+          "xml_value": "D"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/SecPart3/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:TINTYPEU"
+    },
+    {
+      "table": "Owners",
+      "column": "owner_is_entity",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/OwnerEntityIndicator",
+      "caption": "Check",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/SecPart3/OwnerEntityIndicator"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:OwnerEntityIndicator"
+    },
+    {
+      "table": "Owners",
+      "column": "last_name_or_organization_name",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/LastName",
+      "caption": "26 Last name or organization name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/LastNameSub/JtOwnerLname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:LastName"
+    },
+    {
+      "table": "Owners",
+      "column": "first_name",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/FirstName",
+      "caption": "27 First name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/AddSub/JtOwnerLnameFname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:FirstName"
+    },
+    {
+      "table": "Owners",
+      "column": "middle_name",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/MiddleName",
+      "caption": "28 Middle name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/AddSub/JtOwnerLnameMname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:MiddleName"
+    },
+    {
+      "table": "Owners",
+      "column": "suffix",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Suffix",
+      "caption": "28a Suffix",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/AddSub/Suffix"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Suffix"
+    },
+    {
+      "table": "Owners",
+      "column": "street_address",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Address/Address",
+      "caption": "29 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/AddSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Address/common:Address"
+    },
+    {
+      "table": "Owners",
+      "column": "city",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Address/City",
+      "caption": "30 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/CitySub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Address/common:City"
+    },
+    {
+      "table": "Owners",
+      "column": "state_province",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Address/State",
+      "caption": "31 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/CitySub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Address/common:State"
+    },
+    {
+      "table": "Owners",
+      "column": "postal_code",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Address/ZIP",
+      "caption": "32 ZIP/postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/CitySub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Owners",
+      "column": "country_code",
+      "xml_path": "BSAForm/FinAcctOwnedJointly[*]/PrincipalJointOwner/Address/Country",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part3/PrincipalJointOwner/CitySub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:FinAcctOwnedJointly[*]/fbar:PrincipalJointOwner/fbar:Address/common:Country"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_usd",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/MaximumAccntValue",
+      "caption": "15 Maximum account value",
+      "value_constraints": {
+        "decimal": {
+          "fracDigits": "0",
+          "leadDigits": "15"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/secHeaderSub/MaxAcctValue"
+      ],
+      "encoding": "Whole USD integer as decimal text, at most 15 digits in template; unknown uses a separate checkbox.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:MaximumAccntValue"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_unknown",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/MaximumAccntUnkn",
+      "caption": "15a Maximum account value unknown",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/secHeaderSub/MaxAccntUnknown"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:MaximumAccntUnkn"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/AccountType",
+      "caption": "16 Type of account",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Bank",
+          "xml_value": "A"
+        },
+        {
+          "label": "Securities",
+          "xml_value": "B"
+        },
+        {
+          "label": "Other",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/secHeaderSub/AccountType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:AccountType"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type_other_description",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/OtherDesc",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/secHeaderSub/otherAcctDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:OtherDesc"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_name",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/FinInstName",
+      "caption": "17 Financial institution name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/FISub/FIAcctName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:FinInstName"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_number",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/AccntNumber",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "40"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/AcctNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:AccntNumber"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_street_address",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/Address/Address",
+      "caption": "19 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_city",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/Address/City",
+      "caption": "20 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_state_province",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/Address/State",
+      "caption": "21 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_postal_code",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/Address/ZIP",
+      "caption": "22 Foreign postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_country_code",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/Address/Country",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/partSub/AddressSub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Owners",
+      "column": "last_name_or_organization_name",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/LastName",
+      "caption": "34 Last name or organization name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/secAccSub/AcctOwnerLastName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:LastName"
+    },
+    {
+      "table": "Owners",
+      "column": "owner_is_entity",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/OwnerEntityIndicator",
+      "caption": "Check",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/secAccSub/OwnerEntityIndicator"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:OwnerEntityIndicator"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/TIN",
+      "caption": "35 Taxpayer Identification Number (TIN)",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/TIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:TIN"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id_type",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/TINTYPEU",
+      "caption": "35 a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "EIN",
+          "xml_value": "A"
+        },
+        {
+          "label": "SSN/ITIN",
+          "xml_value": "B"
+        },
+        {
+          "label": "Foreign",
+          "xml_value": "C"
+        },
+        {
+          "label": "Unknown",
+          "xml_value": "D"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:TINTYPEU"
+    },
+    {
+      "table": "Owners",
+      "column": "first_name",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/FirstName",
+      "caption": "36 First name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/AcctOwnerFname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:FirstName"
+    },
+    {
+      "table": "Owners",
+      "column": "middle_name",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/MiddleName",
+      "caption": "37 Middle name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/AcctOwnerMname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:MiddleName"
+    },
+    {
+      "table": "Owners",
+      "column": "suffix",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Suffix",
+      "caption": "37a Suffix",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/Suffix"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Suffix"
+    },
+    {
+      "table": "Owners",
+      "column": "street_address",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Address/Address",
+      "caption": "38 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/AddSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Owners",
+      "column": "city",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Address/City",
+      "caption": "39 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/CitySub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Owners",
+      "column": "state_province",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Address/State",
+      "caption": "40 State/territory/province",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/CitySub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Owners",
+      "column": "postal_code",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Address/ZIP",
+      "caption": "41 ZIP/postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/CitySub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Owners",
+      "column": "country_code",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/Address/Country",
+      "caption": "42 Country/Region",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/CitySub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Owners",
+      "column": "filer_title_with_owner",
+      "xml_path": "BSAForm/NoFinInterestFinAcctOwned[*]/NoInterestAcctOwner[*]/FilerTitle",
+      "caption": "43 Filer's title with this owner",
+      "value_constraints": {
+        "text": {
+          "maxChars": "20"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part4/section2/CitySub/Title"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:NoFinInterestFinAcctOwned[*]/fbar:NoInterestAcctOwner[*]/fbar:FilerTitle"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_usd",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/MaximumAccntValue",
+      "caption": "15 Maximum account value",
+      "value_constraints": {
+        "decimal": {
+          "fracDigits": "0",
+          "leadDigits": "15"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/secHeaderSub/MaxAcctValue"
+      ],
+      "encoding": "Whole USD integer as decimal text, at most 15 digits in template; unknown uses a separate checkbox.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:MaximumAccntValue"
+    },
+    {
+      "table": "Accounts",
+      "column": "maximum_value_unknown",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/MaximumAccntUnkn",
+      "caption": "15a Maximum account value unknown",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/secHeaderSub/MaxAccntUnknown"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:MaximumAccntUnkn"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/AccountType",
+      "caption": "16 Type of account",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Bank",
+          "xml_value": "A"
+        },
+        {
+          "label": "Securities",
+          "xml_value": "B"
+        },
+        {
+          "label": "Other",
+          "xml_value": "Z"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/secHeaderSub/AccountType"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:AccountType"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_type_other_description",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/OtherDesc",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/secHeaderSub/otherAcctDesc"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:OtherDesc"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_name",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/FinInstName",
+      "caption": "17 Financial institution name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/FISub/FIAcctName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:FinInstName"
+    },
+    {
+      "table": "Accounts",
+      "column": "account_number",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/AccntNumber",
+      "caption": "",
+      "value_constraints": {
+        "text": {
+          "maxChars": "40"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/AcctNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:AccntNumber"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_street_address",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/Address/Address",
+      "caption": "19 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_city",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/Address/City",
+      "caption": "20 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_state_province",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/Address/State",
+      "caption": "21 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_postal_code",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/Address/ZIP",
+      "caption": "22 Foreign postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Accounts",
+      "column": "institution_country_code",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/Address/Country",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/partSub/AddressSub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Owners",
+      "column": "organization_name",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/CorporateName",
+      "caption": "34 Organization name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/secAccSub/CorporateName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:CorporateName"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/TIN",
+      "caption": "35 Taxpayer Identification Number (TIN)",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/AddSub/TIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:TIN"
+    },
+    {
+      "table": "Owners",
+      "column": "tax_id_type",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/TINTYPE",
+      "caption": "35 a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "EIN",
+          "xml_value": "A"
+        },
+        {
+          "label": "SSN/ITIN",
+          "xml_value": "B"
+        },
+        {
+          "label": "Foreign",
+          "xml_value": "C"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/AddSub/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:TINTYPE"
+    },
+    {
+      "table": "Owners",
+      "column": "street_address",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/Address/Address",
+      "caption": "38 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/AddSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:Address/common:Address"
+    },
+    {
+      "table": "Owners",
+      "column": "city",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/Address/City",
+      "caption": "39 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/CitySub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:Address/common:City"
+    },
+    {
+      "table": "Owners",
+      "column": "postal_code",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/Address/ZIP",
+      "caption": "41 ZIP/postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/CitySub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Owners",
+      "column": "state_province",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/Address/State",
+      "caption": "40 State/territory/province",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/CitySub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:Address/common:State"
+    },
+    {
+      "table": "Owners",
+      "column": "country_code",
+      "xml_path": "BSAForm/ConsolidatedAcct[*]/ConsolidateAcctOwner[*]/Address/Country",
+      "caption": "42 Country/Region",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Part5/section2/CitySub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:ConsolidatedAcct[*]/fbar:ConsolidateAcctOwner[*]/fbar:Address/common:Country"
+    },
+    {
+      "table": "Filing",
+      "column": "third_party_preparer",
+      "xml_path": "BSAForm/FilerInformation/PaidPreparer",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Signature/SigSub/clickcCB"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:FilerInformation/fbar:PaidPreparer"
+    },
+    {
+      "table": "Filing",
+      "column": "filer_title",
+      "xml_path": "BSAForm/SubmissionInformation/SignatureTitle",
+      "caption": "45 Filer title",
+      "value_constraints": {
+        "text": {
+          "maxChars": "20"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/SigSub/SignatureTitle"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:SubmissionInformation/common:SignatureTitle"
+    },
+    {
+      "table": "System",
+      "column": "signature_date",
+      "xml_path": "BSAForm/SubmissionInformation/SignatureDate",
+      "caption": "46 Date of signature",
+      "value_constraints": {
+        "date": {}
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/SigSub/SignatureDate"
+      ],
+      "encoding": "MMDDYYYY in this XFA template; do not use the separate batch XML YYYYMMDD convention.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:SubmissionInformation/common:SignatureDate"
+    },
+    {
+      "table": "Preparer",
+      "column": "last_name",
+      "xml_path": "BSAForm/PaidPreparerInformation/LastName",
+      "caption": "47 Preparer's last name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/ThirdPartySub/PreLastName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:LastName"
+    },
+    {
+      "table": "Preparer",
+      "column": "first_name",
+      "xml_path": "BSAForm/PaidPreparerInformation/FirstName",
+      "caption": "48 First name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/PreFirstname"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:FirstName"
+    },
+    {
+      "table": "Preparer",
+      "column": "middle_name",
+      "xml_path": "BSAForm/PaidPreparerInformation/MiddleName",
+      "caption": "49 Middle name/initial",
+      "value_constraints": {
+        "text": {
+          "maxChars": "35"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/MiddleName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:MiddleName"
+    },
+    {
+      "table": "Preparer",
+      "column": "self_employed",
+      "xml_path": "BSAForm/PaidPreparerInformation/SelfEmployed",
+      "caption": "",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "Checked",
+          "xml_value": "X"
+        },
+        {
+          "label": "Unchecked",
+          "xml_value": null
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/clickcCB"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:SelfEmployed"
+    },
+    {
+      "table": "Preparer",
+      "column": "tax_id",
+      "xml_path": "BSAForm/PaidPreparerInformation/TIN",
+      "caption": "51 Preparer's TIN",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/TIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:TIN"
+    },
+    {
+      "table": "Preparer",
+      "column": "tax_id_type",
+      "xml_path": "BSAForm/PaidPreparerInformation/TINTYPE",
+      "caption": "51a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "SSN/ITIN",
+          "xml_value": "B"
+        },
+        {
+          "label": "Foreign",
+          "xml_value": "C"
+        },
+        {
+          "label": "PTIN",
+          "xml_value": "D"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:TINTYPE"
+    },
+    {
+      "table": "Preparer",
+      "column": "phone_number",
+      "xml_path": "BSAForm/PaidPreparerInformation/TelephoneNumber",
+      "caption": "52 Contact phone number",
+      "value_constraints": {
+        "text": {
+          "maxChars": "16"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/TelephoneNumber"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:TelephoneNumber"
+    },
+    {
+      "table": "Preparer",
+      "column": "phone_extension",
+      "xml_path": "BSAForm/PaidPreparerInformation/TelephoneExt",
+      "caption": "52a Extension",
+      "value_constraints": {
+        "text": {
+          "maxChars": "6"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/TelephoneExt"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:TelephoneExt"
+    },
+    {
+      "table": "Preparer",
+      "column": "firm_name",
+      "xml_path": "BSAForm/PaidPreparerInformation/FirmName",
+      "caption": "53 Firm's name",
+      "value_constraints": {
+        "text": {
+          "maxChars": "150"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/Namesub/FirmName"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:FirmName"
+    },
+    {
+      "table": "Preparer",
+      "column": "firm_tax_id",
+      "xml_path": "BSAForm/PaidPreparerInformation/EIN",
+      "caption": "54 Firm's TIN",
+      "value_constraints": {
+        "text": {
+          "maxChars": "25"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/AddSub/FirmEIN"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:EIN"
+    },
+    {
+      "table": "Preparer",
+      "column": "street_address",
+      "xml_path": "BSAForm/PaidPreparerInformation/Address/Address",
+      "caption": "55 Address",
+      "value_constraints": {
+        "text": {
+          "maxChars": "100"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/AddSub/Address"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:Address/common:Address"
+    },
+    {
+      "table": "Preparer",
+      "column": "firm_tax_id_type",
+      "xml_path": "BSAForm/PaidPreparerInformation/EINType",
+      "caption": "54a TIN type",
+      "value_constraints": {},
+      "enum": [
+        {
+          "label": "EIN",
+          "xml_value": "A"
+        },
+        {
+          "label": "Foreign",
+          "xml_value": "C"
+        }
+      ],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/AddSub/TINTYPE"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:EINType"
+    },
+    {
+      "table": "Preparer",
+      "column": "city",
+      "xml_path": "BSAForm/PaidPreparerInformation/Address/City",
+      "caption": "56 City",
+      "value_constraints": {
+        "text": {
+          "maxChars": "50"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/CitySub/City"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:Address/common:City"
+    },
+    {
+      "table": "Preparer",
+      "column": "state_province",
+      "xml_path": "BSAForm/PaidPreparerInformation/Address/State",
+      "caption": "57 State",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/CitySub/State"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:Address/common:State"
+    },
+    {
+      "table": "Preparer",
+      "column": "postal_code",
+      "xml_path": "BSAForm/PaidPreparerInformation/Address/ZIP",
+      "caption": "58 ZIP/postal code",
+      "value_constraints": {
+        "text": {
+          "maxChars": "9"
+        }
+      },
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/CitySub/ZIP"
+      ],
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:Address/common:ZIP"
+    },
+    {
+      "table": "Preparer",
+      "column": "country_code",
+      "xml_path": "BSAForm/PaidPreparerInformation/Address/Country",
+      "caption": "59 Country/Region",
+      "value_constraints": {},
+      "enum": [],
+      "template_fields": [
+        "/#template/BSAForm/Signature/thirdParty/CitySub/Country"
+      ],
+      "code_list": "Template script StatesAndCountriesJS; field initialization selects a context-specific subset.",
+      "qualified_xml_path": "fbar:BSAForm/fbar:PaidPreparerInformation/fbar:Address/common:Country"
+    }
+  ]
+}
