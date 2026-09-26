@@ -1,20 +1,36 @@
 # FBAR Magician
 
-[FBAR Magician](output/fbar-local-workflow.md) supports completed-PDF import, filer/account/owner/preparer tables, explicit save/resume of unfinished work with a privacy notice, undo, year rollover, linked validation feedback, responsive account details, checked unsigned export and saved-PDF comparison. All processing stays in the browser. Final review and signing take place in Adobe Reader.
+FBAR Magician helps you fill out an FBAR more efficiently. Instead of working through the PDF one field at a time, you can enter filer and account details in organized tables, check your entries, and download an unsigned PDF for final review.
 
-The earlier [PDF.js + custom writer experiment](output/fbar-pdfjs-feasibility.md) documents rendering and native PDF.js export limitations.
+If you filed in a previous year, you can import your completed FBAR and copy its accounts into a new draft. Choose the next reporting year, then review the accounts and add that year's balances. The app clears prior-year balances and other year-specific answers during this step so they are not carried forward by mistake.
 
-The earlier [commercial browser export experiment](output/fbar-export-feasibility.md) documents the Foxit signing prototype and remaining production checks.
+## What you can do
 
+- **Start fresh or pick up where you left off.** Create a blank draft, import a completed FBAR, or resume a saved work file.
+- **Manage accounts in one place.** Add and edit accounts, addresses, owners, and filer details in tables that work on desktop and narrow screens.
+- **Reuse accounts next year.** Carry account details forward while clearing annual values for review.
+- **Catch issues before downloading.** Follow links from validation messages to the fields that need attention, then download a checked unsigned PDF.
+- **Keep control of your files.** The app processes documents in your browser. You choose when to save a work file or download a PDF; it does not upload your documents.
+
+## Try the prototype locally
+
+With Node.js 22.13 or later installed, run these commands from the repository root:
+
+```sh
+npm --prefix prototype install
+node prototype/pdfjs/server.cjs
+```
+
+Open [http://127.0.0.1:3141](http://127.0.0.1:3141) in your browser. Choose **New blank draft**, **Import completed FBAR**, or **Try synthetic data**.
+
+FBAR Magician is a prototype for the tested FBAR PDF template. It creates an **unsigned draft**; review, validate, sign, and save the PDF in Adobe Reader before using the official filing workflow. The app does not submit a filing. Saved work files are unencrypted and contain the information you entered, so keep them in a private location.
+
+## More information
+
+- [How to use the local workflow](output/fbar-local-workflow.md)
+- [Prototype setup and tests](prototype/README.md)
+- [Current quality review and limits](output/fbar-quality-review.md)
 - [Application specification](output/fbar-app-specification.md)
-- [Logical spreadsheet columns and field dictionary](output/fbar-field-dictionary.md)
-- [Machine-readable field catalog](output/fbar-field-catalog.json)
-- [Prototype and test instructions](prototype/README.md)
-- [Adobe handoff test and next steps](output/fbar-reader-handoff.md)
-- [Current local workflow and qualification](output/fbar-local-workflow.md)
-- [Quality review and remaining work](output/fbar-quality-review.md)
-- [Persistent synthetic data rules](AGENTS.md)
-
-The user's completed PDF was analyzed locally. The prototype fixtures contain only public template data and invented test records. No filing was submitted. This remains a prototype for the exact tested template; see the current workflow report for scope and limitations.
-
-Generated QA artifacts in `prototype/results/` stay local and are excluded from the public repository. Run the test scripts in [the prototype instructions](prototype/README.md) to recreate them with synthetic data.
+- [Field dictionary](output/fbar-field-dictionary.md)
+- [Technical experiments](output/fbar-pdfjs-feasibility.md)
+- [Synthetic test data rules](AGENTS.md)
