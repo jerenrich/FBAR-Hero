@@ -1,0 +1,67 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {createServer}=require('../pdfjs/server.cjs');
+
+(async()=>{
+ const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const browser=await chromium.launch({channel:'chrome',headless:true});
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'fbar-institutions-'));
+ try{
+  const page=await browser.newPage();await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.waitForFunction(()=>window.experiment);await page.evaluate(()=>experiment.generate(3));
+  assert.equal(await page.locator('#institution-scroll tbody tr').count(),3);
+  assert.equal(await page.locator('#rows tr').count(),3);
+  assert.equal(await page.getByLabel('Institution 2',{exact:true}).inputValue(),'1');
+  await page.getByLabel('Institution 2',{exact:true}).selectOption('0');
+  await page.getByLabel('Institution name 1',{exact:true}).fill('SYNTHETIC SHARED BANK');
+  await page.getByLabel('Institution street 1',{exact:true}).fill('25 TEST ROAD');
+  const linked=await page.evaluate(async()=>{
+   const dm=await import('/pdfjs/data-model.mjs'),accounts=dm.records(experiment.getModel(),'FinAcctOwnedSeparately');
+   return accounts.slice(0,2).map(account=>[dm.value(account,'FinInstName'),dm.value(account,'Address/Address')]);
+  });
+  assert.deepEqual(linked,[['SYNTHETIC SHARED BANK','25 TEST ROAD'],['SYNTHETIC SHARED BANK','25 TEST ROAD']]);
+  assert.match(await page.getByLabel('Institution 2',{exact:true}).locator('option:checked').textContent(),/SYNTHETIC SHARED BANK/);
+  await page.locator('#undo').click();
+  assert.equal(await page.getByLabel('Institution street 1',{exact:true}).inputValue(),'2 TEST ONLY ROAD');
+  await page.locator('#add-institution').click();
+  assert.equal(await page.locator('#institution-scroll tbody tr').count(),4);
+  await page.getByLabel('Institution name 4',{exact:true}).fill('SYNTHETIC FOURTH BANK');
+  await page.getByLabel('Institution street 4',{exact:true}).fill('4 TEST ROAD');
+  await page.getByLabel('Institution city 4',{exact:true}).fill('TEST CITY');
+  await page.getByLabel('Institution country 4',{exact:true}).fill('GB');
+  await page.getByLabel('Institution 3',{exact:true}).selectOption('3');
+  const pdf=await page.evaluate(async()=>Array.from(await experiment.buildDraft()));
+  assert.match(await page.locator('#comparison').textContent(),/PDF data matches your entries/);
+  const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
+  assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
+  assert.match(await page.locator('#status').textContent(),/Save work in progress to keep unused institution rows/);
+  await page.locator('#save-work').click();
+  const download=page.waitForEvent('download');await page.locator('#dialog-actions [data-action=save]').click();
+  const saved=await download;const file=path.join(folder,saved.suggestedFilename());await saved.saveAs(file);
+  const work=JSON.parse(fs.readFileSync(file,'utf8'));
+  assert.equal(work.institutions.rows.length,4);
+  const resumed=await browser.newPage();await resumed.goto(`http://127.0.0.1:${server.address().port}`);
+  await resumed.waitForFunction(()=>window.experiment);await resumed.evaluate(text=>experiment.resumeWork(text),JSON.stringify(work));
+  assert.equal(await resumed.locator('#institution-scroll tbody tr').count(),4);
+  assert.equal(await resumed.getByLabel('Institution 2',{exact:true}).inputValue(),'0');
+  assert.equal(await resumed.getByLabel('Institution 3',{exact:true}).inputValue(),'3');
+  await resumed.evaluate(()=>experiment.buildDraft());
+  assert.match(await resumed.locator('#comparison').textContent(),/PDF data matches your entries/);
+  const legacy=await browser.newPage();await legacy.goto(`http://127.0.0.1:${server.address().port}`);
+  await legacy.waitForFunction(()=>window.experiment);
+  const {institutions:unused,...olderWork}=work;
+  await legacy.evaluate(text=>experiment.resumeWork(text),JSON.stringify(olderWork));
+  assert.equal(await legacy.locator('#institution-scroll tbody tr').count(),2);
+  assert.equal(await legacy.getByLabel('Institution 2',{exact:true}).inputValue(),'0');
+  await legacy.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),pdf);
+  assert.equal(await legacy.locator('#institution-scroll tbody tr').count(),2);
+  assert.equal(await legacy.getByLabel('Institution 2',{exact:true}).inputValue(),'0');
+  await legacy.setViewportSize({width:390,height:800});
+  const mobile=await legacy.evaluate(()=>({width:document.documentElement.scrollWidth,rows:getComputedStyle(document.querySelector('#institution-scroll tbody tr')).display}));
+  assert.deepEqual(mobile,{width:390,rows:'block'});
+  console.log('PASS: shared institution edits, account selection, undo, saved work and PDF export');
+ }finally{await browser.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(folder,{recursive:true,force:true});}
+})().catch(error=>{console.error(error);process.exitCode=1;});

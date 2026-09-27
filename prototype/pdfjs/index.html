@@ -78,16 +78,22 @@ header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-wid
 #work-summary{flex:1 1 300px;font-size:14px}
 #editor .field-scroll,#editor .owner{max-height:none;overflow:visible}
 #editor #grid-scroll,#editor .grid-scroll{max-height:none}
-#editor .account-table{min-width:950px}
+#editor .account-table{min-width:1320px}
+#editor .institution-table{min-width:1100px}
+#editor .institution-table td :is(input,select){width:100%;min-width:125px}
+#editor .institution-table td:first-child{min-width:220px}
+#editor .institution-table td:last-child{min-width:145px}
+#editor .institution-table td button{margin:0}
 #editor .account-table td:first-child,#editor .account-table th:first-child{position:sticky;left:0;background:#fff;z-index:1}
 #editor .account-table th:first-child{background:#edf3fa;z-index:2}
 #editor .account-table td :is(input,select){width:100%;min-width:110px}
 #editor .account-table td:first-child{min-width:220px}
+#editor .account-table td:nth-child(2){min-width:240px}
 #editor .account-table td:last-child{min-width:110px}
 #editor .account-table td input[type=checkbox]{width:22px;min-width:22px}
-#editor .account-details{background:#fafcfe}
-#editor .account-details>summary{font-weight:500}
-#editor .account-detail-actions{display:flex;gap:8px;flex-wrap:wrap}
+#editor .owner-card{background:#fafcfe;border:1px solid #d6dee7;border-radius:5px;padding:12px;margin:12px 0}
+#editor .owner-card h4{font-size:16px;margin:0 0 8px}
+#editor .not-applicable{color:#64748b}
 #editor [aria-invalid=true]{border:2px solid #b43b30;background:#fff8f7}
 #issues{border:1px solid #b43b30;border-radius:6px;padding:16px;margin-bottom:20px;background:#fff8f7}
 #issues h2{margin-top:0}
@@ -111,11 +117,17 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
  #workbar{padding:10px 16px;gap:6px}#workbar button{font-size:13px;padding:7px 9px}
  #work-summary{flex-basis:100%}
  #editor .account-table,#editor .account-table tbody,#editor .account-table tr,#editor .account-table td{display:block;min-width:0;width:100%}
+ #editor .institution-table,#editor .institution-table tbody,#editor .institution-table tr,#editor .institution-table td{display:block;min-width:0;width:100%}
  #editor .account-table thead{display:none}
+ #editor .institution-table thead{display:none}
  #editor .account-table tr{border:1px solid #bbc8d5;border-radius:6px;margin-bottom:12px;padding:8px}
+ #editor .institution-table tr{border:1px solid #bbc8d5;border-radius:6px;margin-bottom:12px;padding:8px}
  #editor .account-table td{border:0;padding:5px;position:static!important}
+ #editor .institution-table td{border:0;padding:5px;position:static!important}
  #editor .account-table td::before{content:attr(data-label);display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+ #editor .institution-table td::before{content:attr(data-label);display:block;font-size:13px;font-weight:600;margin-bottom:3px}
  #editor .account-table td :is(input,select){width:100%;font-size:16px}
+ #editor .institution-table td :is(input,select){width:100%;font-size:16px}
  #editor .account-table td input[type=checkbox]{width:22px}
  #editor #grid-scroll,#editor .grid-scroll{overflow:visible}
  #editor .fields,#editor .fields tbody,#editor .fields tr,#editor .fields th,#editor .fields td{display:block;width:100%}
@@ -144,10 +156,11 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <section id="issues" hidden aria-labelledby="issues-heading"><h2 id="issues-heading"></h2><p>Select an issue to go to the field. You can save unfinished work at any time.</p><ul id="issue-list"></ul></section>
 <p id="save-note" role="status">Work stays in memory until you choose to save a file.</p>
 <section id="handoff" hidden aria-labelledby="handoff-heading"><h2 id="handoff-heading">Finish in Adobe Reader</h2><p>The PDF data matches your entries. This does not mean the filing is reviewed, signed or submitted.</p><ol><li>Check that the unsigned PDF finished downloading.</li><li>Open it in Adobe Reader and review all details.</li><li>Validate, sign and save the PDF in Reader.</li><li>Upload the saved PDF yourself through the filing service.</li></ol><p>You can use Compare a saved PDF below to check its data against this draft. Comparison does not verify a signature or submission.</p></section>
-<p>Enter filer details and accounts, then check and download an unsigned PDF. Open account details for addresses and owners. Saving work in progress is available even with missing or invalid fields.</p>
+<p>Enter filer details, institution details and accounts, then check and download an unsigned PDF. Saving work in progress is available even with missing or invalid fields.</p>
 <details id="filer-section" open><summary>Filer and filing information</summary><div id="dob-row"><label>Date of birth <input id="dob" type="date"></label><span id="dob-display" aria-live="polite"></span></div><div id="filer-fields" class="field-scroll"></div></details>
 <details id="year-section"><summary>Use these accounts for a different year</summary><p>This clears maximum balances, unknown-value flags, amendment details and late-filing explanations. Check which accounts belong in the new year.</p><label>Report year <input id="next-year" inputmode="numeric" maxlength="4"></label><button id="rollover" disabled>Change year & clear annual values</button></details>
-<section id="separate-section"><h2 id="separate-heading">Accounts</h2><button id="add-row">Add account</button><p class="grid-hint">Choose a reporting category for each account. Use Details for account addresses and owner information.</p><div id="grid-scroll" tabindex="0" aria-label="Account table"></div><div id="separate-details"></div></section>
+<section id="institution-section"><h2 id="institution-heading">Institution Details</h2><button id="add-institution">Add institution</button><p class="grid-hint">Enter each institution once. Changes here update every account linked to it. To remove an institution, choose another one for its accounts first.</p><div id="institution-scroll" class="grid-scroll" tabindex="0" aria-label="Institution Details table"></div></section>
+<section id="separate-section"><h2 id="separate-heading">Accounts</h2><button id="add-row">Add account</button><p class="grid-hint">Choose an institution and reporting category for each account. Owner information appears below for accounts that require it.</p><div id="grid-scroll" tabindex="0" aria-label="Account table"></div><div id="owner-details" hidden></div></section>
 <details id="preparer"><summary>Third party preparer</summary><p>Complete this section when Third party preparer is checked in the filer table.</p><div id="preparer-fields" class="field-scroll"></div></details>
 <label class="file-button">Compare a saved PDF <input id="compare-file" type="file" accept="application/pdf,.pdf" disabled></label>
 <p id="editor-status" hidden></p>

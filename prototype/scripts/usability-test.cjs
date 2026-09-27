@@ -16,10 +16,10 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const action=id=>page.locator(`#dialog-actions [data-action="${id}"]`).click();
   const idle=()=>page.waitForFunction(()=>!document.querySelector('#editor').inert);
   const snapshot=()=>page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());});
-  // Details contain the full account address while ownership and five account fields remain in each grid row.
-  assert.equal(await page.locator('#rows tr').first().locator('input,select').count(),6);
-  await input('Separately owned accounts 1 details').click();
-  assert(await input('Country 1').isVisible());
+  // Institution addresses are shared while ownership and account fields remain in each account row.
+  assert.equal(await page.locator('#rows tr').first().locator('input,select').count(),7);
+  assert.equal(await page.locator('.account-details').count(),0);
+  assert(await input('Institution country 1').isVisible());
   await input('Type code 1').selectOption('Z');
   assert(await input('Other type description 1').isVisible());
   await input('Type code 1').selectOption('A');assert(!await input('Other type description 1').isVisible());
@@ -29,15 +29,14 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert(!await input('Prior report BSA ID').isVisible());
   await input('Is amendment').check();assert(await input('Prior report BSA ID').isVisible());
   await input('Is amendment').uncheck();
-  // Repeated-account errors must target the correct field, including fields behind closed details.
-  await page.locator('[data-view-key="FinAcctOwnedSeparately-detail-1"] summary').click();await input('Country 2').fill(plain(''));
-  await page.locator('[data-view-key="FinAcctOwnedSeparately-detail-1"]').evaluate(n=>n.open=false);
+  // Repeated-account errors must target the correct institution field.
+  await input('Institution country 2').fill(plain(''));
   await page.locator('#draft').click();await idle();
   const countryIssue=page.locator('#issue-list button').filter({hasText:'Separately owned accounts 2 · Institution country code'});
   assert.equal(await countryIssue.count(),1);await countryIssue.click();
-  assert.equal(await input('Country 2').evaluate(n=>n===document.activeElement),true);
-  assert.equal(await input('Country 2').getAttribute('aria-invalid'),'true');
-  await input('Country 2').fill(plain('GB'));assert.equal(await countryIssue.count(),0);
+  assert.equal(await input('Institution country 2').evaluate(n=>n===document.activeElement),true);
+  assert.equal(await input('Institution country 2').getAttribute('aria-invalid'),'true');
+  await input('Institution country 2').fill(plain('GB'));assert.equal(await countryIssue.count(),0);
   // Incomplete and invalid entries can be saved even though PDF export is blocked.
   await input('First name').fill(plain(''));
   await input('Maximum USD 1').fill(plain('MISSING'));
@@ -102,9 +101,9 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.equal(await snapshot(),unfinished);
   await input('First name').fill(plain('TEST'));await input('Maximum USD 1').fill(plain('10001'));
   // Removal, later edits, and undo preserve the expected sequence.
-  await input('Separately owned accounts 2 details').click();const beforeRemoval=await snapshot();
+  const beforeRemoval=await snapshot();
   await page.getByRole('button',{name:'Remove account 2',exact:true}).click();assert.equal(await page.locator('#rows tr').count(),2);
-  await input('Institution 1').fill(plain('UPDATED BANK'));
+  await input('Institution name 1').fill(plain('UPDATED BANK'));
   await page.locator('#undo').click();assert.equal(await page.locator('#rows tr').count(),2);
   await page.locator('#undo').click();assert.equal(await snapshot(),beforeRemoval);
   // Rollover shows its scope, cancellation preserves values, and Undo restores every cleared value.

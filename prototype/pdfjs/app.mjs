@@ -8,10 +8,12 @@ $('#save').hidden=!diagnosticMode;
 let inputs=new Map(),history=[],validationActive=false,lastSaved='',lastSavedKind='';
 const revealedAccounts=new WeakSet();
 const accountOrder=new WeakMap();let nextAccountOrder=0;
+const accountInstitution=new WeakMap();let institutions=[];
 let doc=null,draft=null,loadingTask=null,blank=null,model=null,busy=false,reference=null,catalog=null,blankXml=null,synthetic=false,dirty=false;
 const names={FinAcctOwnedSeparately:'Separately owned accounts',FinAcctOwnedJointly:'Jointly owned accounts',NoFinInterestFinAcctOwned:'Signature authority accounts',ConsolidatedAcct:'Consolidated accounts'};
 const categoryLabels={FinAcctOwnedSeparately:'Separate',FinAcctOwnedJointly:'Joint',NoFinInterestFinAcctOwned:'Signature authority',ConsolidatedAcct:'Consolidated'};
 const columns=[['Institution','FinInstName'],['Account number','AccntNumber'],['Maximum USD','MaximumAccntValue'],['Maximum unknown','MaximumAccntUnkn'],['Type code','AccountType'],['Other type description','OtherDesc'],['Street','Address/Address'],['City','Address/City'],['State','Address/State'],['Postal code','Address/ZIP'],['Country','Address/Country']];
+const institutionColumns=[columns[0],...columns.slice(6)];
 const {field,value,child,records,branches,ownerNames}=data;
 async function assets(){
  if(blank)return;
@@ -28,6 +30,7 @@ function changed(){
 function checkpoint(){
  if(!model)return;
  history.push({xml:data.serialize(model),synthetic,notices:$('#notices').textContent,
+  institutions:institutionState(),
   order:branches.map(branch=>records(model,branch).map(record=>accountOrder.get(record))),
   revealed:branches.map(branch=>records(model,branch).map(record=>revealedAccounts.has(record)))});
  if(history.length>30)history.shift();
@@ -37,8 +40,8 @@ function updateProgress(){
  const count=branches.reduce((sum,b)=>sum+records(model,b).filter(data.populated).length,0);
  $('#work-summary').textContent=`Report year ${value(model.root,'FilerInformation/CalendarYear')||'not set'} · ${count} account${count===1?'':'s'} · ${dirty?'Unsaved changes':lastSavedKind==='resumed'?'Saved work resumed':lastSavedKind==='work'?'Work file download requested':'PDF download requested'}`;
  for(const [i,{branch,record}] of combinedRecords().entries()){
-  const summary=$(`[data-view-key="${branches[0]}-detail-${i}"] > summary`);
-  if(summary?.firstChild)summary.firstChild.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${categoryLabels[branch]} address and details`;
+  const heading=$(`#owner-details .owner-card[data-account-index="${i}"] h4`);
+  if(heading)heading.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${ownerNames[branch]==='PrincipalJointOwner'?'principal joint owner':'owners'}`;
  }
  $('#undo').disabled=!history.length;$('#save-work').disabled=false;$('#apply').disabled=false;
 }
@@ -60,8 +63,8 @@ async function saveWork(){
   [['cancel','Cancel'],['save','Save sensitive work file']],{privacy:true});
  if(choice!=='save')return false;
  const xml=data.serialize(model);
- download(JSON.stringify({format:'fbar-work-in-progress',version:1,synthetic,datasets:xml}),workFilename(),'application/json');
- lastSaved=xml;lastSavedKind='work';dirty=false;updateProgress();
+ download(JSON.stringify({format:'fbar-work-in-progress',version:1,synthetic,datasets:xml,institutions:institutionState()}),workFilename(),'application/json');
+ lastSaved=draftSnapshot();lastSavedKind='work';dirty=false;updateProgress();
  $('#save-note').textContent='Work file download requested. Check that it finished and keep it in a private location. Resume saved work reopens this JSON file. No automatic copy is stored by this app.';
  setStatus('Work file download requested. Check your browser downloads before closing.');return true;
 }
@@ -85,7 +88,7 @@ async function resumeWork(text){
  const source=data.business(data.xml(saved.datasets));
  const next=data.importData(data.createModel(blankXml,catalog),source,{preserveValues:true});
  if(!await allowReplace())return;
- model=next;synthetic=saved.synthetic;resetSession();dirty=false;lastSaved=data.serialize(model);lastSavedKind='resumed';
+ model=next;synthetic=saved.synthetic;resetSession();initializeInstitutions(saved.institutions);dirty=false;lastSaved=draftSnapshot();lastSavedKind='resumed';
  $('#notices').textContent=synthetic?'Synthetic test records. Never submit these PDFs.':'';
  renderTable();$('#save-note').textContent='Saved work resumed locally. Further edits stay in memory until you save another file.';
  setStatus('Saved work resumed, including unfinished entries. Review and continue editing.');
@@ -113,7 +116,7 @@ function updateConditions(){
  $('#preparer').hidden=value(r,'FilerInformation/PaidPreparer')!=='X'&&!data.populated(child(r,'PaidPreparerInformation'));
  for(const branch of branches)for(const account of records(model,branch)){
   const node=field(account,'OtherDesc'),input=inputs.get(node);
-  if(input)input.closest('tr').hidden=value(account,'AccountType')!=='Z'&&!node.textContent;
+  if(input){const show=value(account,'AccountType')==='Z'||!!node.textContent;input.hidden=!show;input.closest('td')?.querySelector('.not-applicable')?.toggleAttribute('hidden',show);}
  }
 }
 function focusField(input){
@@ -133,10 +136,10 @@ function showIssues(){
   if(input){input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),button.id].filter(Boolean).join(' '));
    let section=input.closest('details');
    while(section){counts.set(section,(counts.get(section)||0)+1);section=section.parentElement.closest('details');}
-   if(input.closest('#separate-section'))counts.set($('#separate-section'),(counts.get($('#separate-section'))||0)+1);
+   for(const id of ['#institution-section','#separate-section'])if(input.closest(id))counts.set($(id),(counts.get($(id))||0)+1);
   }
  });
- for(const [section,count] of counts){const badge=document.createElement('span');badge.className='issue-badge';badge.textContent=`${count} issue${count===1?'':'s'}`;(section.querySelector(':scope > summary')||$('#separate-heading')).append(badge);}
+ for(const [section,count] of counts){const badge=document.createElement('span');badge.className='issue-badge';badge.textContent=`${count} issue${count===1?'':'s'}`;(section.querySelector(':scope > summary')||(section.id==='institution-section'?$('#institution-heading'):$('#separate-heading'))).append(badge);}
  $('#issues').hidden=!issues.length;$('#issues-heading').textContent=`${issues.length} field${issues.length===1?'':'s'} to review`;
  return issues;
 }
@@ -182,7 +185,7 @@ function currencyInput(input){
  }
  return raw;
 }
-function control(node,meta,label){
+function control(node,meta,label,onValue){
  const checkbox=meta?.enum?.some(e=>e.xml_value==='X')&&meta.enum.length===2;
  const dropdown=meta?.enum?.length&&!checkbox;
  const input=document.createElement(dropdown?'select':Number(meta?.value_constraints?.text?.maxChars)>=750?'textarea':'input');
@@ -203,7 +206,7 @@ function control(node,meta,label){
   input.title=checkbox?label:text;
   caption.textContent=dropdown&&input.value&&text.length>30?text:'';caption.hidden=!caption.textContent;
  };
- input.oninput=()=>{checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;describe();changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
+ input.oninput=()=>{checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;onValue?.(node.textContent);describe();changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
  describe();if(dropdown)input.choiceCaption=caption;return input;
 }
 function fieldTable(container,entries){
@@ -222,11 +225,74 @@ function combinedRecords(){
  for(const {record} of entries)if(!accountOrder.has(record))accountOrder.set(record,nextAccountOrder++);
  return entries.sort((a,b)=>accountOrder.get(a.record)-accountOrder.get(b.record));
 }
+function institutionValues(record){return Object.fromEntries(institutionColumns.map(([,path])=>[path,value(record,path)]));}
+function institutionKey(values){return JSON.stringify(institutionColumns.map(([,path])=>values[path]||''));}
+function institutionState(){return {
+ rows:institutions.map(institution=>({...institution})),
+ links:branches.map(branch=>records(model,branch).map(record=>institutions.indexOf(accountInstitution.get(record))))
+};}
+function draftSnapshot(){return JSON.stringify([data.serialize(model),institutionState()]);}
+function hasUnusedInstitutions(){return institutions.some(institution=>!branches.some(branch=>records(model,branch).some(record=>accountInstitution.get(record)===institution)));}
+function initializeInstitutions(saved){
+ institutions=[];
+ const validRows=Array.isArray(saved?.rows)&&saved.rows.length<=1000&&saved.rows.every(row=>row&&typeof row==='object'&&institutionColumns.every(([,path])=>typeof row[path]==='string'));
+ if(validRows)institutions=saved.rows.map(row=>Object.fromEntries(institutionColumns.map(([,path])=>[path,row[path]])));
+ for(const [branchIndex,branch] of branches.entries())for(const [recordIndex,record] of records(model,branch).entries()){
+  const values=institutionValues(record),nonempty=institutionColumns.some(([,path])=>values[path]);
+  const savedIndex=saved?.links?.[branchIndex]?.[recordIndex];
+  let institution=Number.isInteger(savedIndex)&&savedIndex>=0?institutions[savedIndex]:undefined;
+  if(institution&&institutionKey(institution)!==institutionKey(values))institution=undefined;
+  if(!institution&&nonempty){institution=institutions.find(row=>institutionKey(row)===institutionKey(values));if(!institution){institution=values;institutions.push(institution);}}
+  if(institution)accountInstitution.set(record,institution);
+ }
+}
+function institutionLabel(institution,index){
+ const name=institution.FinInstName.trim()||`New institution ${index+1}`;
+ const sameName=institutions.filter(row=>row.FinInstName.trim()===institution.FinInstName.trim());
+ return sameName.length>1&&institution.FinInstName.trim()?`${name} — ${institution['Address/City']||institution['Address/Country']||index+1}`:name;
+}
+function copyInstitution(record,institution){
+ for(const [,path] of institutionColumns)field(record,path).textContent=institution?.[path]||'';
+ if(institution)accountInstitution.set(record,institution);else accountInstitution.delete(record);
+}
+function refreshInstitutionOptions(){
+ for(const select of document.querySelectorAll('#rows select[data-institution]')){
+  const chosen=select.value;
+  select.replaceChildren(new Option('Select an institution',''),...institutions.map((row,i)=>new Option(institutionLabel(row,i),String(i))));
+  select.value=chosen;
+ }
+ updateProgress();
+}
+function institutionTable(container){
+ const table=document.createElement('table');table.className='institution-table';
+ const head=table.createTHead().insertRow(),body=table.createTBody();
+ for(const [label] of institutionColumns){const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);}
+ const actionHeading=document.createElement('th');actionHeading.scope='col';actionHeading.textContent='Actions';head.append(actionHeading);
+ for(const [index,institution] of institutions.entries()){
+  const tr=body.insertRow();
+  for(const [label,path] of institutionColumns){
+   const node=document.createElement('value');node.textContent=institution[path];
+   const input=control(node,metaFor('BSAForm/'+branches[0]+'/'+path),`Institution ${label==='Institution'?'name':label.toLowerCase()} ${index+1}`,text=>{
+    institution[path]=text;
+    for(const branch of branches)for(const record of records(model,branch))if(accountInstitution.get(record)===institution)field(record,path).textContent=text;
+    if(path==='FinInstName'||path==='Address/City'||path==='Address/Country')refreshInstitutionOptions();
+   });
+   for(const branch of branches)for(const record of records(model,branch))if(accountInstitution.get(record)===institution)inputs.set(field(record,path),input);
+   const td=tr.insertCell();td.dataset.label=label;td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);
+  }
+  const td=tr.insertCell(),remove=document.createElement('button');remove.textContent=`Remove institution ${index+1}`;
+  remove.disabled=branches.some(branch=>records(model,branch).some(record=>accountInstitution.get(record)===institution));
+  remove.title=remove.disabled?'Select another institution for linked accounts before removing this one':'';
+  remove.onclick=()=>{checkpoint();institutions.splice(index,1);changed();renderTable({preserveView:true});};td.append(remove);
+ }
+ container.replaceChildren(table);
+}
 function changeOwnership(record,source,target){
  if(source===target)return;
  checkpoint();
  const next=data.newRecord(model,target);
  for(const [,path] of columns)field(next,path).textContent=value(record,path);
+ const institution=accountInstitution.get(record);if(institution)accountInstitution.set(next,institution);
  accountOrder.set(next,accountOrder.get(record)??nextAccountOrder++);
  const destination=records(model,target);
  if(destination.length===1&&!data.populated(destination[0]))destination[0].replaceWith(next);
@@ -239,43 +305,55 @@ function changeOwnership(record,source,target){
  setStatus(`Account changed to ${categoryLabels[target]}. ${guidance}`.trim());
 }
 function accountTable(container){
- const cols=columns.slice(0,5),table=document.createElement('table');table.className='account-table';
+ const cols=columns.slice(1,6),table=document.createElement('table');table.className='account-table';
  const head=table.createTHead().insertRow(),body=table.createTBody();
  table.tHead.id='columns';body.id='rows';
  const categoryHeading=document.createElement('th');categoryHeading.textContent='Reporting category';categoryHeading.scope='col';head.append(categoryHeading);
+ const institutionHeading=document.createElement('th');institutionHeading.textContent='Institution';institutionHeading.scope='col';head.append(institutionHeading);
  for(const [label] of cols){const th=document.createElement('th');th.textContent=label==='Type code'?'Account type':label;th.scope='col';head.append(th);}
- const actions=document.createElement('th');actions.textContent='Details';actions.scope='col';head.append(actions);
- const detailsContainer=$('#separate-details');detailsContainer.replaceChildren();
+ for(const label of ['Joint owners excluding filer','Actions']){const th=document.createElement('th');th.textContent=label;th.scope='col';head.append(th);}
+ const ownerContainer=$('#owner-details');ownerContainer.replaceChildren();
  for(const [i,{branch:recordBranch,record}] of combinedRecords().entries()){
   const tr=body.insertRow();
   const select=document.createElement('select');select.setAttribute('aria-label',`Account ${i+1} reporting category`);
   for(const category of branches)select.add(new Option(categoryLabels[category],category));select.value=recordBranch;
   select.onchange=()=>changeOwnership(record,recordBranch,select.value);
   const categoryCell=tr.insertCell();categoryCell.dataset.label='Reporting category';categoryCell.append(select);
-  for(const [label,path] of cols){const input=control(field(record,path),metaFor('BSAForm/'+recordBranch+'/'+path),`${label} ${i+1}`);input.dataset.path=path;const td=tr.insertCell();td.dataset.label=label==='Type code'?'Account type':label;td.append(input);}
-  const detail=document.createElement('details');detail.className='account-details';detail.dataset.viewKey=branches[0]+'-detail-'+i;
-  const summary=document.createElement('summary');summary.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${categoryLabels[recordBranch]} address and details`;detail.append(summary);
-  const detailFields=document.createElement('div');detail.append(detailFields);
-  const fields=catalog.fields.filter(f=>f.table==='Accounts'&&f.xml_path.startsWith('BSAForm/'+recordBranch+'[')&&!cols.some(c=>c[1]===f.xml_path.split('/').slice(2).join('/')));
-  fieldTable(detailFields,fields.map(f=>{const path=f.xml_path.split('/').slice(2).join('/');const oldLabel=columns.find(c=>c[1]===path)?.[0];return [field(record,path),f,oldLabel?`${oldLabel} ${i+1}`:`${names[recordBranch]} ${i+1} ${labelFor(f)}`];}));
-  renderOwners(detail,recordBranch,record,i);
-  const remove=document.createElement('button');remove.textContent=`Remove account ${i+1}`;remove.onclick=()=>removeRecord(record,recordBranch);detail.append(remove);
-  detailsContainer.append(detail);
-  const open=document.createElement('button');open.textContent='Details';open.setAttribute('aria-label',`${names[recordBranch]} ${i+1} details`);open.onclick=()=>{detail.open=true;detail.scrollIntoView({block:'start'});summary.focus();};tr.insertCell().append(open);
+  const institutionSelect=document.createElement('select');institutionSelect.dataset.institution='';institutionSelect.setAttribute('aria-label',`Institution ${i+1}`);
+  institutionSelect.add(new Option('Select an institution',''));
+  for(const [index,institution] of institutions.entries())institutionSelect.add(new Option(institutionLabel(institution,index),String(index)));
+  const selected=institutions.indexOf(accountInstitution.get(record));institutionSelect.value=selected<0?'':String(selected);
+  institutionSelect.onchange=()=>{checkpoint();const chosen=institutionSelect.value===''?null:institutions[Number(institutionSelect.value)];copyInstitution(record,chosen);changed();renderTable({preserveView:true});};
+  const institutionCell=tr.insertCell();institutionCell.dataset.label='Institution';institutionCell.append(institutionSelect);
+  for(const [,path] of institutionColumns)inputs.set(field(record,path),institutionSelect);
+  for(const [label,path] of cols){
+   const input=control(field(record,path),metaFor('BSAForm/'+recordBranch+'/'+path),`${label} ${i+1}`);input.dataset.path=path;
+   const td=tr.insertCell();td.dataset.label=label==='Type code'?'Account type':label;td.append(input);
+   if(path==='OtherDesc'){const empty=document.createElement('span');empty.className='not-applicable';empty.textContent='—';td.append(empty);}
+  }
+  const jointCell=tr.insertCell();jointCell.dataset.label='Joint owners excluding filer';
+  if(recordBranch==='FinAcctOwnedJointly')jointCell.append(control(field(record,'NOofJointOwners'),metaFor('BSAForm/'+recordBranch+'/NOofJointOwners'),`Joint owners excluding filer ${i+1}`));
+  else jointCell.textContent='—';
+  const actionCell=tr.insertCell();actionCell.dataset.label='Actions';
+  const remove=document.createElement('button');remove.textContent=`Remove account ${i+1}`;remove.onclick=()=>removeRecord(record,recordBranch);actionCell.append(remove);
+  renderOwners(ownerContainer,recordBranch,record,i);
  }
  container.replaceChildren(table);
+ if(ownerContainer.children.length){const heading=document.createElement('h3');heading.textContent='Owner information';ownerContainer.prepend(heading);}
+ ownerContainer.hidden=!ownerContainer.children.length;
 }
 function renderOwners(container,branch,selectedAccount,selectedIndex){
  const owner=ownerNames[branch];if(!owner)return;
  for(const [i,account] of [[selectedIndex,selectedAccount]]){
-  const detail=document.createElement('details'),summary=document.createElement('summary');detail.dataset.viewKey=branch+'-owners-'+i;summary.textContent=`Account ${i+1}: ${owner==='PrincipalJointOwner'?'principal joint owner':'owners'}`;detail.append(summary);
+  const card=document.createElement('section'),heading=document.createElement('h4');card.className='owner-card';card.dataset.accountIndex=String(i);
+  heading.textContent=`Account ${i+1}: ${value(account,'FinInstName')||'New account'} — ${owner==='PrincipalJointOwner'?'principal joint owner':'owners'}`;card.append(heading);
   for(const [j,node] of [...account.children].filter(n=>n.localName===owner).entries()){
    const group=document.createElement('div');group.className='owner';
-   fieldTable(group,catalog.fields.filter(f=>f.table==='Owners'&&f.xml_path.startsWith('BSAForm/'+branch+'[')).map(f=>[field(node,f.xml_path.split('/').slice(3).join('/')),f,`Account ${i+1} owner ${j+1} ${labelFor(f)}`]));detail.append(group);
-   if(owner!=='PrincipalJointOwner'){const remove=document.createElement('button');remove.textContent=`Clear / remove owner ${j+1}`;remove.onclick=()=>removeRecord(node,branch+'/'+owner);detail.append(remove);}
+   fieldTable(group,catalog.fields.filter(f=>f.table==='Owners'&&f.xml_path.startsWith('BSAForm/'+branch+'[')).map(f=>[field(node,f.xml_path.split('/').slice(3).join('/')),f,`Account ${i+1} owner ${j+1} ${labelFor(f)}`]));card.append(group);
+   if(owner!=='PrincipalJointOwner'){const remove=document.createElement('button');remove.textContent=`Clear / remove owner ${j+1}`;remove.onclick=()=>removeRecord(node,branch+'/'+owner);card.append(remove);}
   }
-  if(owner!=='PrincipalJointOwner'){const add=document.createElement('button');add.textContent='Add owner';add.onclick=()=>{checkpoint();account.append(data.newRecord(model,branch+'/'+owner));changed();renderTable({preserveView:true});};detail.append(add);}
-  container.append(detail);
+  if(owner!=='PrincipalJointOwner'){const add=document.createElement('button');add.textContent='Add owner';add.onclick=()=>{checkpoint();account.append(data.newRecord(model,branch+'/'+owner));changed();renderTable({preserveView:true});};card.append(add);}
+  container.append(card);
  }
 }
 function addAccount(branch,withSynthetic=false){
@@ -288,23 +366,23 @@ function addAccount(branch,withSynthetic=false){
   for(const path of columns.map(c=>c[1]))field(next,path).textContent=value(first,path);
   field(next,'FinInstName').textContent='SYNTHETIC BANK '+number;
   field(next,'AccntNumber').textContent='0000TEST'+String(number).padStart(3,'0');field(next,'MaximumAccntValue').textContent='10000';
+  const institution=institutionValues(next);institutions.push(institution);accountInstitution.set(next,institution);
  }
  list.at(-1).after(next);revealedAccounts.add(next);changed();renderTable({preserveView:true});
 }
 function renderTable({preserveView=false}={}){
- const view=new Map([...$('#editor').querySelectorAll('details[data-view-key]')].map(n=>[n.dataset.viewKey,n.open]));
- const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
+ const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#institution-scroll,#grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
  inputs=new Map();$('#editor').hidden=false;$('#workbar').hidden=false;$('#draft').disabled=false;$('#compare-file').disabled=false;$('#rollover').disabled=false;
  const filing=catalog.fields.filter(f=>f.table==='Filing'&&f.column!=='date_of_birth');
  fieldTable($('#filer-fields'),filing.map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,labelFor(f)]));
  const dob=value(model.root,'FilerInformation/DOB');$('#dob').value=dob?`${dob.slice(4)}-${dob.slice(0,2)}-${dob.slice(2,4)}`:'';
  showDob();inputs.set(field(model.root,'FilerInformation/DOB'),$('#dob'));
  accountTable($('#grid-scroll'));
+ institutionTable($('#institution-scroll'));
  fieldTable($('#preparer-fields'),catalog.fields.filter(f=>f.table==='Preparer').map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,'Preparer '+labelFor(f)]));
  if(!preserveView)$('#preparer').open=value(model.root,'FilerInformation/PaidPreparer')==='X';
  if(preserveView){
-  for(const n of $('#editor').querySelectorAll('details[data-view-key]'))if(view.has(n.dataset.viewKey))n.open=view.get(n.dataset.viewKey);
-  [...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
+  [...document.querySelectorAll('#filer-fields,#preparer-fields,#institution-scroll,#grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
  }
  updateConditions();if(validationActive)showIssues();updateProgress();
 }
@@ -352,7 +430,7 @@ export async function openBytes(bytes){
 }
 export async function generate(count){
  await assets();const text=await fetch(`/fixtures/datasets-${count}.xml`).then(r=>r.text());
- model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(text)));resetSession();synthetic=true;dirty=true;$('#notices').textContent='Synthetic test records. Never submit these PDFs.';renderTable();return regenerate();
+ model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(text)));resetSession();initializeInstitutions();synthetic=true;dirty=true;$('#notices').textContent='Synthetic test records. Never submit these PDFs.';renderTable();return regenerate();
 }
 async function importPdf(bytes,{protect=false}={}){
  await assets();const {root,templateMatches,viewerMetadataExcluded}=await data.readPdf(bytes,reference,{allowCompatibleTemplate:true});
@@ -360,7 +438,7 @@ async function importPdf(bytes,{protect=false}={}){
  if(!templateMatches)next.notices.unshift('Imported a compatible prior form. New downloads use the current blank form.');
  if(viewerMetadataExcluded)next.notices.push('Excluded prior PDF viewer session records.');
  if(protect&&!await allowReplace())return;
- model=next;synthetic=false;resetSession();dirty=true;renderTable();
+ model=next;synthetic=false;resetSession();initializeInstitutions();dirty=true;renderTable();
  $('#comparison').textContent='Imported locally into a new unsigned draft. Review the report year and balances before exporting.';
  const padding=next.notices.filter(n=>n.startsWith('Removed form dropdown padding')).length;
  const notes=next.notices.filter(n=>!n.startsWith('Removed form dropdown padding')).map(n=>n.startsWith('Cleared prior submission state:')?'Cleared prior signing and submission information.':n);
@@ -381,13 +459,14 @@ async function runAction(action){
  finally{busy=false;$('header').inert=false;$('#editor').inert=false;$('#workbar').inert=false;if(document.activeElement===document.body&&trigger?.isConnected)trigger.focus({preventScroll:true});}
 }
 $('#load').onclick=()=>runAction(async()=>{if(await allowReplace())await generate(Number($('#count').value));});
-$('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
+$('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
 $('#import-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Reading your FBAR locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});});
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await comparePdf(new Uint8Array(await file.arrayBuffer()));});
 $('#dob').oninput=()=>{checkpoint();const iso=$('#dob').value;field(model.root,'FilerInformation/DOB').textContent=iso?iso.slice(5,7)+iso.slice(8,10)+iso.slice(0,4):'';showDob();changed();};
-$('#draft').onclick=()=>runAction(async()=>{const bytes=await buildDraft();download(bytes,synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf');dirty=false;lastSaved=data.serialize(model);lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('Compared and downloaded. Open in Adobe Reader, review, validate, sign and save before your manual upload.');});
+$('#draft').onclick=()=>runAction(async()=>{const bytes=await buildDraft();download(bytes,synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf');const unused=hasUnusedInstitutions();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('Compared and downloaded. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unused?' Save work in progress to keep unused institution rows.':''));});
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
+$('#add-institution').onclick=()=>{checkpoint();institutions.push(Object.fromEntries(institutionColumns.map(([,path])=>[path,''])));changed();renderTable({preserveView:true});const row=$('#institution-scroll tbody tr:last-child');row?.querySelector('input,select')?.focus();};
 $('#apply').onclick=()=>runAction(regenerate);
 $('#rollover').onclick=()=>runAction(async()=>{
  const year=$('#next-year').value;if(!/^\d{4}$/.test(year))throw Error('Enter a four digit report year.');
@@ -396,12 +475,12 @@ $('#rollover').onclick=()=>runAction(async()=>{
  if(choice!=='confirm')return;checkpoint();data.rollover(model,$('#next-year').value);changed();renderTable({preserveView:true});setStatus('Report year changed. Balances, unknown-value flags and amendment details cleared; review every account for this year.');});
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#resume-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>10_000_000)throw Error('Choose a work file smaller than 10 MB.');await resumeWork(await file.text());});
-$('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
+$('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
  branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
   const order=saved.order?.[i]?.[j];if(order!==undefined)accountOrder.set(record,order);
   if(saved.revealed?.[i]?.[j])revealedAccounts.add(record);
  }));
- renderTable({preserveView:true});changed();if(data.serialize(model)===lastSaved)dirty=false;updateProgress();setStatus('Previous change undone.');};
+ renderTable({preserveView:true});changed();if(draftSnapshot()===lastSaved)dirty=false;updateProgress();setStatus('Previous change undone.');};
 $('#continue-year').onclick=()=>{$('#import-guide').hidden=true;focusField(inputs.get(field(model.root,'FilerInformation/CalendarYear')));};
 $('#prepare-year').onclick=()=>{$('#year-section').open=true;const year=value(model.root,'FilerInformation/CalendarYear');$('#next-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';focusField($('#next-year'));};
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
