@@ -168,6 +168,20 @@ function describeError(message){
  }).join('\n');
 }
 function showDob(){const iso=$('#dob').value;$('#dob-display').textContent=iso?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(iso+'T00:00:00Z')):'';}
+function formatCurrency(value){return /^\d+$/.test(value)?value.replace(/\B(?=(\d{3})+(?!\d))/g,','):value;}
+function currencyInput(input){
+ const before=input.value,caret=input.selectionStart,digitsBefore=before.slice(0,caret).replace(/,/g,'').length;
+ const raw=/^[\d,]*$/.test(before)?before.replace(/,/g,''):before;
+ const formatted=formatCurrency(raw);
+ if(formatted!==before){
+  input.value=formatted;
+  let position=0,digits=0;
+  while(position<formatted.length&&digits<digitsBefore)if(formatted[position++]!==',')digits++;
+  if(caret===before.length)position=formatted.length;
+  input.setSelectionRange(position,position);
+ }
+ return raw;
+}
 function control(node,meta,label){
  const checkbox=meta?.enum?.some(e=>e.xml_value==='X')&&meta.enum.length===2;
  const dropdown=meta?.enum?.length&&!checkbox;
@@ -180,7 +194,8 @@ function control(node,meta,label){
  }
  if(checkbox){input.type='checkbox';input.checked=node.textContent==='X';}
  else if(input.type==='date'){const v=node.textContent;input.value=v?`${v.slice(4)}-${v.slice(0,2)}-${v.slice(2,4)}`:'';}
- else input.value=node.textContent;
+ else input.value=meta?.column==='maximum_value_usd'?formatCurrency(node.textContent):node.textContent;
+ if(meta?.column==='maximum_value_usd')input.inputMode='numeric';
  inputs.set(node,input);input.setAttribute('aria-label',label);input.autocomplete='off';input.spellcheck=false;
  const caption=document.createElement('small');caption.className='choice-description';
  const describe=()=>{
@@ -188,7 +203,7 @@ function control(node,meta,label){
   input.title=checkbox?label:text;
   caption.textContent=dropdown&&input.value&&text.length>30?text:'';caption.hidden=!caption.textContent;
  };
- input.oninput=()=>{checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):input.value;describe();changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
+ input.oninput=()=>{checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;describe();changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
  describe();if(dropdown)input.choiceCaption=caption;return input;
 }
 function fieldTable(container,entries){
