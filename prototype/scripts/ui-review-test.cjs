@@ -24,7 +24,7 @@ const {createServer}=require('../pdfjs/server.cjs');
    layouts.push({width,colorScheme,pageWidth:layout.pageWidth});await page.screenshot({path:`${out}/${width}-${colorScheme}.png`});
   }
   await page.setViewportSize({width:1280,height:1000});await reason.selectOption('');
-  const bank=page.getByLabel('Institution 1',{exact:true});await bank.fill('SYNTHETIC REVIEW BANK');
+  const bank=page.getByLabel('Institution name 1',{exact:true});await bank.fill('SYNTHETIC REVIEW BANK');
   assert.equal(await page.locator('#preview-warning').isVisible(),true);
   await page.locator('#apply').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Preview updated'));
   assert.equal(await page.locator('#preview-warning').isVisible(),false);
@@ -34,12 +34,11 @@ const {createServer}=require('../pdfjs/server.cjs');
   const dialog=page.waitForEvent('dialog');const reload=page.reload({timeout:2000}).catch(()=>{});const warning=await dialog;
   assert.equal(warning.type(),'beforeunload');await warning.dismiss();await reload;
   assert.equal(await bank.inputValue(),'SYNTHETIC REVIEW BANK');
-  // Rebuilding account tables preserves expanded preparer and account detail panels.
+  // Rebuilding account tables preserves the expanded preparer section without account panels.
   await page.getByLabel('Third party preparer',{exact:true}).check();
-  await page.getByLabel('Separately owned accounts 1 details',{exact:true}).click();
   await page.locator('#add-row').click();
   assert.equal(await page.locator('#preparer').evaluate(n=>n.open),true);
-  assert.equal(await page.locator('[data-view-key="FinAcctOwnedSeparately-detail-0"]').evaluate(n=>n.open),true);
+  assert.equal(await page.locator('.account-details').count(),0);
   assert.equal(await page.locator('#rows tr').count(),4);
   // Validation is readable and visible next to the editor as well as at the top.
   await page.getByLabel('First name',{exact:true}).fill('');await page.locator('#draft').click();

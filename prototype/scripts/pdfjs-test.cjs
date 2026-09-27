@@ -51,7 +51,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   if(dateSave.bytes)fs.writeFileSync(`${out}/edited-dob.pdf`,Buffer.from(dateSave.bytes));
   const editTest={offline:true,visibleDobBefore,visibleDobAfter:await dob.inputValue(),boundSaveError:boundSave.error,dateSaveError:dateSave.error,requestsDuringEditAndSave:requests.slice(requestIndex)};
   await context.setOffline(false); // Only the loopback asset server remains allowed.
-  await page.getByLabel('Institution 1',{exact:true}).fill('TABLE EDIT TEST');
+  await page.getByLabel('Institution name 1',{exact:true}).fill('TABLE EDIT TEST');
   await page.getByLabel('Account number 1',{exact:true}).fill('00000042');
   await page.getByLabel('Maximum USD 1',{exact:true}).fill('0');
   await page.locator('#dob').fill('1981-02-03');
