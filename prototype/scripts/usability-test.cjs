@@ -81,7 +81,7 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await resumed.locator('#draft').click();await resumed.waitForFunction(()=>!document.querySelector('#editor').inert);
   const nestedError=resumed.locator('#issue-list button').filter({hasText:'select a listed value'});assert.equal(await nestedError.count(),1);await nestedError.click();
   assert.equal(await resumed.evaluate(()=>document.activeElement.value),'INVALID');
-  assert.match(await resumed.evaluate(()=>document.activeElement.getAttribute('aria-label')),/owner 2/);
+  assert.match(await resumed.evaluate(()=>document.activeElement.getAttribute('aria-label')),/^Owner \d+ Tax ID type$/);
   await resumed.close();
   // Cancel New, PDF import and resume without losing the current edits.
   await input('First name').fill(plain('UPDATED'));

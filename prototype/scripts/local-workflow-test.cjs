@@ -82,11 +82,11 @@ const {createServer}=require('../pdfjs/server.cjs');
    },{original,kind});
    fs.writeFileSync(`${out}/SYNTHETIC-${kind}.pdf`,Buffer.from(result.bytes));fs.writeFileSync(`${out}/${kind}.xml`,result.xml);branchResults.push(kind);
    if(kind==='joint-authority-preparer'){
-    assert.equal(await page.locator('#owner-details .owner-card').count(),2);
-    await page.getByRole('button',{name:'Add owner',exact:true}).click();
-    assert.equal(await page.getByLabel('Account 2 owner 3 First name',{exact:true}).isVisible(),true);
-    await page.getByRole('button',{name:'Clear / remove owner 3',exact:true}).click();
-    assert.equal(await page.getByLabel('Account 2 owner 3 First name',{exact:true}).count(),0);
+    assert.equal(await page.locator('#owner-details .owner-card').count(),0);
+    await page.getByRole('button',{name:'Add owner link to account 2',exact:true}).click();
+    assert.equal(await page.getByLabel('Account 2 owner 3',{exact:true}).isVisible(),true);
+    await page.getByRole('button',{name:'Remove account 2 owner 3 link',exact:true}).click();
+    assert.equal(await page.getByLabel('Account 2 owner 3',{exact:true}).count(),0);
     await page.screenshot({path:`${out}/editor.png`,fullPage:true});
    }
   }

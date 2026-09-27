@@ -1,0 +1,84 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {createServer}=require('../pdfjs/server.cjs');
+const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
+
+(async()=>{
+ const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const browser=await chromium.launch({channel:'chrome',headless:true});
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'fbar-owners-'));
+ try{
+  const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const open=async()=>{const tab=await browser.newPage();await tab.goto(`http://127.0.0.1:${server.address().port}`);await tab.waitForFunction(()=>window.experiment);return tab;};
+  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForFunction(()=>window.experiment);
+  await page.evaluate(()=>experiment.generate(3));
+  assert(await page.evaluate(()=>!!(document.querySelector('#owners-section').compareDocumentPosition(document.querySelector('#separate-section'))&Node.DOCUMENT_POSITION_FOLLOWING)));
+  assert.equal(await page.locator('#rows select[data-owner]').count(),0);
+  await page.locator('#add-owner').click();
+  const fill=async(label,text)=>page.getByLabel(`Owner 1 ${label}`,{exact:true}).fill(plain(text));
+  await fill('Last name or organization name','SYNTHETIC OWNER');await fill('First name','TEST');
+  await fill('Tax ID','321546788');await page.getByLabel('Owner 1 Tax ID type',{exact:true}).selectOption('B');
+  await fill('Street address','2 TEST ROAD');await fill('City','TEST CITY');await fill('State province','CA');
+  await fill('Postal code','94105');await fill('Country code','US');
+  for(const index of [1,2]){
+   await page.getByLabel(`Account ${index} reporting category`,{exact:true}).selectOption('FinAcctOwnedJointly');
+   await page.getByLabel(`Joint Owner ${index}`,{exact:true}).selectOption('0');
+   await page.getByLabel(`Joint owners excluding filer ${index}`,{exact:true}).fill(plain('1'));
+  }
+  assert.equal(await page.locator('#rows select[data-owner]').count(),2);
+  assert.equal(await page.getByRole('button',{name:'Remove owner 1',exact:true}).isDisabled(),true);
+  await fill('City','SHARED CITY');
+  const cities=()=>page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.records(experiment.getModel(),'FinAcctOwnedJointly').map(record=>dm.value(record,'PrincipalJointOwner/Address/City'));});
+  assert.deepEqual(await cities(),['SHARED CITY','SHARED CITY']);
+  await page.locator('#undo').click();assert.deepEqual(await cities(),['TEST CITY','TEST CITY']);
+  await fill('First name','UPDATED');
+  for(const index of [1,2])assert.match(await page.getByLabel(`Joint Owner ${index}`,{exact:true}).locator('option:checked').textContent(),/UPDATED/);
+  // Shared validation links must focus the owner table, while missing selections focus the account.
+  await fill('Last name or organization name','');await page.locator('#draft').click();
+  await page.waitForFunction(()=>!document.querySelector('#editor').inert);
+  assert.equal(await page.getByLabel('Owner 1 Last name or organization name',{exact:true}).getAttribute('aria-invalid'),'true');
+  await fill('Last name or organization name','SYNTHETIC OWNER');
+  await page.getByLabel('Joint Owner 2',{exact:true}).selectOption('');
+  assert.equal(await page.getByLabel('Joint Owner 2',{exact:true}).getAttribute('aria-invalid'),'true');
+  await page.getByLabel('Joint Owner 2',{exact:true}).selectOption('0');
+  const pdf=await page.evaluate(async()=>Array.from(await experiment.buildDraft()));
+  assert.match(await page.locator('#comparison').textContent(),/PDF data matches your entries/);
+  await page.locator('#add-owner').click();
+  await page.getByLabel('Owner 2 Last name or organization name',{exact:true}).fill(plain('UNUSED OWNER'));
+  const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
+  assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
+  assert.match(await page.locator('#status').textContent(),/keep unused owner rows/);
+  await page.locator('#save-work').click();const download=page.waitForEvent('download');await page.locator('#dialog-actions [data-action=save]').click();
+  const saved=await download,file=path.join(folder,saved.suggestedFilename());await saved.saveAs(file);
+  const work=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(work.owners.rows.length,2);assert.deepEqual(work.owners.links,[0,0]);
+  const resumed=await open();await resumed.evaluate(text=>experiment.resumeWork(text),JSON.stringify(work));
+  assert.equal(await resumed.locator('#owners-scroll tbody tr').count(),2);
+  assert.deepEqual(await resumed.locator('#rows select[data-owner]').evaluateAll(selects=>selects.map(select=>select.value)),['0','0']);
+  await resumed.evaluate(()=>experiment.buildDraft());
+  const legacy=await open();const {owners:unused,...oldWork}=work;
+  await legacy.evaluate(text=>experiment.resumeWork(text),JSON.stringify(oldWork));
+  assert.equal(await legacy.locator('#owners-scroll tbody tr').count(),1);
+  assert.deepEqual(await legacy.locator('#rows select[data-owner]').evaluateAll(selects=>selects.map(select=>select.value)),['0','0']);
+  const imported=await open();await imported.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),pdf);
+  assert.equal(await imported.locator('#owners-scroll tbody tr').count(),1);
+  assert.deepEqual(await imported.locator('#rows select[data-owner]').evaluateAll(selects=>selects.map(select=>select.value)),['0','0']);
+  await imported.evaluate(()=>experiment.buildDraft());
+  await page.getByLabel('Account 1 reporting category',{exact:true}).selectOption('FinAcctOwnedSeparately');
+  assert.equal(await page.getByLabel('Joint Owner 1',{exact:true}).count(),0);
+  assert.equal(await page.locator('#owners-scroll tbody tr').count(),2);
+  await page.locator('#undo').click();assert.equal(await page.getByLabel('Joint Owner 1',{exact:true}).inputValue(),'0');
+  for(const index of [1,2])await page.getByLabel(`Joint Owner ${index}`,{exact:true}).selectOption('1');
+  await page.getByRole('button',{name:'Remove owner 1',exact:true}).click();
+  assert.equal(await page.getByLabel('Joint Owner 1',{exact:true}).inputValue(),'0');
+  assert.equal(await page.getByLabel('Owner 1 Last name or organization name',{exact:true}).inputValue(),'UNUSED OWNER');
+  await page.locator('#undo').click();assert.equal(await page.getByLabel('Joint Owner 1',{exact:true}).inputValue(),'1');
+  await page.setViewportSize({width:390,height:800});
+  assert.deepEqual(await page.evaluate(()=>({width:document.documentElement.scrollWidth,display:getComputedStyle(document.querySelector('#owners-scroll tbody tr')).display})),{width:390,display:'block'});
+  await page.screenshot({path:path.join(folder,'owners-mobile.png'),fullPage:true});
+  assert.deepEqual(errors,[]);
+  console.log('PASS: Owners section, joint selection, shared edits, validation, undo, removal, saved work, legacy/PDF import, PDF comparison and mobile layout');
+ }finally{await browser.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(folder,{recursive:true,force:true});}
+})().catch(error=>{console.error(error);process.exitCode=1;});

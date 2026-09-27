@@ -20,7 +20,8 @@ const {createServer}=require('../pdfjs/server.cjs');
   assert.equal(await page.locator('#rows tr').count(),3);
   assert.equal(await page.getByLabel('Institution name 1',{exact:true}).inputValue(),original);
   assert.equal(await page.getByLabel('Account 1 reporting category',{exact:true}).inputValue(),'FinAcctOwnedJointly');
-  assert.equal(await page.locator('#owner-details .owner-card').count(),1);
+  assert.equal(await page.getByLabel('Joint Owner 1',{exact:true}).isVisible(),true);
+  assert.equal(await page.locator('#owner-details .owner-card').count(),0);
   assert.equal(await page.getByLabel('Joint owners excluding filer 1',{exact:true}).isVisible(),true);
   assert.equal(await page.evaluate(async()=>{
    const dm=await import('/pdfjs/data-model.mjs'),model=experiment.getModel();
@@ -55,8 +56,8 @@ const {createServer}=require('../pdfjs/server.cjs');
   await page.locator('#add-row').click();
   await page.getByLabel('Account 4 reporting category',{exact:true}).selectOption('FinAcctOwnedJointly');
   assert.equal(await page.locator('#rows tr').count(),4);
-  assert.equal(await page.locator('#owner-details .owner-card').count(),3);
-  assert.match(await page.locator('#owner-details').textContent(),/Account 2:.*owners/);
+  assert.equal(await page.locator('#owner-details .owner-card').count(),1);
+  assert.equal(await page.getByLabel('Account 2 owner 1',{exact:true}).isVisible(),true);
   assert.match(await page.locator('#owner-details').textContent(),/Account 3:.*owners/);
   const allCategories=await page.evaluate(async()=>{
    const dm=await import('/pdfjs/data-model.mjs'),model=experiment.getModel();

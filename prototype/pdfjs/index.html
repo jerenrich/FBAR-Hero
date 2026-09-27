@@ -78,12 +78,14 @@ header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-wid
 #work-summary{flex:1 1 300px;font-size:14px}
 #editor .field-scroll,#editor .owner{max-height:none;overflow:visible}
 #editor #grid-scroll,#editor .grid-scroll{max-height:none}
-#editor .account-table{min-width:1320px}
+#editor .account-table{min-width:1500px}
 #editor .institution-table{min-width:1100px}
 #editor .institution-table td :is(input,select){width:100%;min-width:125px}
 #editor .institution-table td:first-child{min-width:220px}
 #editor .institution-table td:last-child{min-width:145px}
 #editor .institution-table td button{margin:0}
+#editor .owner-table td:first-child{min-width:90px}
+#editor .owner-table td input[type=checkbox]{width:22px;min-width:22px}
 #editor .account-table td:first-child,#editor .account-table th:first-child{position:sticky;left:0;background:#fff;z-index:1}
 #editor .account-table th:first-child{background:#edf3fa;z-index:2}
 #editor .account-table td :is(input,select){width:100%;min-width:110px}
@@ -91,6 +93,12 @@ header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-wid
 #editor .account-table td:nth-child(2){min-width:240px}
 #editor .account-table td:last-child{min-width:110px}
 #editor .account-table td input[type=checkbox]{width:22px;min-width:22px}
+#editor .account-owner{min-width:240px;margin-bottom:10px}
+#editor .account-owner.joint-owner{min-width:0;margin:0}
+#editor .account-table td .joint-owner select{width:230px;max-width:100%}
+#editor .account-owner label{display:block;font-size:13px;margin-bottom:8px}
+#editor .account-owner select,#editor .account-owner input{display:block;margin-top:4px}
+#editor .account-owner button{white-space:normal}
 #editor .owner-card{background:#fafcfe;border:1px solid #d6dee7;border-radius:5px;padding:12px;margin:12px 0}
 #editor .owner-card h4{font-size:16px;margin:0 0 8px}
 #editor .not-applicable{color:#64748b}
@@ -127,6 +135,7 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
  #editor .account-table td::before{content:attr(data-label);display:block;font-size:13px;font-weight:600;margin-bottom:3px}
  #editor .institution-table td::before{content:attr(data-label);display:block;font-size:13px;font-weight:600;margin-bottom:3px}
  #editor .account-table td :is(input,select){width:100%;font-size:16px}
+ #editor .account-table td .joint-owner select{width:100%}
  #editor .institution-table td :is(input,select){width:100%;font-size:16px}
  #editor .account-table td input[type=checkbox]{width:22px}
  #editor #grid-scroll,#editor .grid-scroll{overflow:visible}
@@ -160,7 +169,8 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <details id="filer-section" open><summary>Filer and filing information</summary><div id="dob-row"><label>Date of birth <input id="dob" type="date"></label><span id="dob-display" aria-live="polite"></span></div><div id="filer-fields" class="field-scroll"></div></details>
 <details id="year-section"><summary>Use these accounts for a different year</summary><p>This clears maximum balances, unknown-value flags, amendment details and late-filing explanations. Check which accounts belong in the new year.</p><label>Report year <input id="next-year" inputmode="numeric" maxlength="4"></label><button id="rollover" disabled>Change year & clear annual values</button></details>
 <section id="institution-section"><h2 id="institution-heading">Institution Details</h2><button id="add-institution">Add institution</button><p class="grid-hint">Enter each institution once. Changes here update every account linked to it. To remove an institution, choose another one for its accounts first.</p><div id="institution-scroll" class="grid-scroll" tabindex="0" aria-label="Institution Details table"></div></section>
-<section id="separate-section"><h2 id="separate-heading">Accounts</h2><button id="add-row">Add account</button><p class="grid-hint">Choose an institution and reporting category for each account. Owner information appears below for accounts that require it.</p><div id="grid-scroll" tabindex="0" aria-label="Account table"></div><div id="owner-details" hidden></div></section>
+<section id="owners-section"><h2 id="owners-heading">Owners</h2><button id="add-owner">Add owner</button><p class="grid-hint">Enter each owner once and reuse them for Joint or Signature authority accounts below. Changes here update every linked account. Choose another owner for linked accounts before removing an owner. Consolidated owner details also appear here when applicable.</p><div id="owners-scroll" class="grid-scroll" tabindex="0" aria-label="Owners table"></div><div id="owner-details" hidden></div></section>
+<section id="separate-section"><h2 id="separate-heading">Accounts</h2><button id="add-row">Add account</button><p class="grid-hint">Choose an institution and reporting category for each account. For Joint or Signature authority accounts, select from Owners above. Signature authority also needs your title with that owner.</p><div id="grid-scroll" tabindex="0" aria-label="Account table"></div></section>
 <details id="preparer"><summary>Third party preparer</summary><p>Complete this section when Third party preparer is checked in the filer table.</p><div id="preparer-fields" class="field-scroll"></div></details>
 <label class="file-button">Compare a saved PDF <input id="compare-file" type="file" accept="application/pdf,.pdf" disabled></label>
 <p id="editor-status" hidden></p>
