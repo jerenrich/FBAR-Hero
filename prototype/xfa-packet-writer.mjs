@@ -1,19 +1,24 @@
 // Feasibility prototype: append an XFA datasets update without rewriting the original PDF.
 // Does not sign, render, submit, or claim that an output is ready to file.
-export async function inspectXfa(PDFLib, bytes) {
+export async function inspectXfa(PDFLib, bytes, {packetNames=null,strict=false}={}) {
   const {PDFDocument,PDFName,PDFArray,PDFRef,decodePDFRawStream}=PDFLib;
-  const pdf=await PDFDocument.load(bytes,{updateMetadata:false});
+  if(bytes.byteLength>25_000_000)throw new Error('Choose an FBAR PDF smaller than 25 MB.');
+  const pdf=await PDFDocument.load(bytes,{updateMetadata:false,throwOnInvalidObject:strict});
   if(pdf.isEncrypted) throw new Error('Encrypted PDFs are unsupported');
   const acro=pdf.catalog.lookup(PDFName.of('AcroForm'));
   const xfa=acro?.lookup(PDFName.of('XFA'));
   if(!(xfa instanceof PDFArray)) throw new Error('Expected XFA packet array');
   if(xfa.size()%2)throw new Error('Invalid XFA packet list');
+  if(xfa.size()>64)throw new Error('Too many XFA packets.');
   const packets=Object.create(null);
+  const seen=new Set();
   for(let i=0;i<xfa.size();i+=2) {
     const name=xfa.get(i).decodeText();
-    if(Object.hasOwn(packets,name))throw new Error('Duplicate XFA packet name');
+    if(seen.has(name))throw new Error('Duplicate XFA packet name');
+    seen.add(name);
     const ref=xfa.get(i+1);
     if(!(ref instanceof PDFRef)) throw new Error('Expected indirect XFA stream');
+    if(packetNames&&!packetNames.has(name))continue;
     packets[name]={ref,bytes:decodePDFRawStream(pdf.context.lookup(ref)).decode()};
   }
   return {pdf,packets};

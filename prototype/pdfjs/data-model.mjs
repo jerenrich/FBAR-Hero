@@ -1,5 +1,5 @@
 // Local data-only import. Imported templates, scripts and saved signing state are never executed or copied.
-import {inspectXfa} from '/xfa-packet-writer.mjs';
+import {readPackets} from './pdf-reader.mjs';
 export const XFA='http://www.xfa.org/schema/xfa-data/1.0/';
 export const FBAR='http://www.fincen.gov/bsa/ffbar/2011-06-01';
 const DD='http://ns.adobe.com/data-description/';
@@ -14,8 +14,19 @@ const key=n=>`{${n.namespaceURI}}${n.localName}`;
 export function xml(text){
  if(text.length>8_000_000)throw Error('The XML data is too large for this prototype.');
  if(/<!DOCTYPE|<!ENTITY/i.test(text))throw Error('XML entities and document declarations are unsupported.');
+ // Bound DOM allocation before parsing, including compact empty elements. This
+ // intentionally counts markup in comments/CDATA toward the same budget.
+ let markup=0;
+ for(let i=text.indexOf('<');i!==-1;i=text.indexOf('<',i+1))
+  if(++markup>100_000)throw Error('The XML data is too complex for this prototype.');
  const d=new DOMParser().parseFromString(text,'application/xml');
  if(d.getElementsByTagName('parsererror').length)throw Error('The PDF contains invalid XML data.');
+ const stack=[[d.documentElement,1]];
+ while(stack.length){
+  const [node,depth]=stack.pop();
+  if(depth>64)throw Error('The XML data is nested too deeply for this prototype.');
+  for(const c of node.children)stack.push([c,depth+1]);
+ }
  return d;
 }
 const viewerRootFields=new Set(['FSTEMPLATE_','FSFORMQUERY_','FSTRANSFORMATIONID_','FSTARGETURL_','FSAWR_','FSWR_','FSCRURI_','FSBASEURL_']);
@@ -47,6 +58,11 @@ export function newRecord(model,branch){
 export function records(model,branch){return [...model.root.children].filter(n=>n.localName===branch);}
 export function serialize(model){return new XMLSerializer().serializeToString(model.document);}
 export function importData(model,source,{preserveValues=false}={}){
+ // A tiny repeated element expands to a full schema record and dozens of UI
+ // controls. Check the aggregate before cloning any records, including owners.
+ let recordCount=0;
+ for(const node of source.querySelectorAll('*'))if(repeated.has(node.localName)&&++recordCount>1000)
+  throw Error('This prototype supports at most 1000 account and repeated owner records per draft.');
  const notices=[];
  function merge(dst,src,path){
   if(!dst.children.length){
@@ -108,7 +124,7 @@ function bindingDefinitions(bytes){
 }
 export async function readPdf(bytes,trustedTemplate,{allowCompatibleTemplate=false}={}){
  if(bytes.byteLength>25_000_000)throw Error('Choose an FBAR PDF smaller than 25 MB.');
- const {packets}=await inspectXfa(PDFLib,bytes);
+ const packets=await readPackets(bytes);
  if(!packets.template||!packets.datasets)throw Error('This PDF has no supported XFA data. Scanned or flattened PDFs cannot be imported.');
  const a=packets.template.bytes,b=trustedTemplate;
  const templateMatches=a.length===b.length&&a.every((v,i)=>v===b[i]);

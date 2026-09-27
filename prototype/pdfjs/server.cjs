@@ -2,7 +2,17 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const dist=process.env.FBAR_PDFJS_DIST || path.dirname(require.resolve('pdfjs-dist/package.json'));
 const lib=require.resolve('pdf-lib/dist/pdf-lib.min.js');
-const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.pdf':'application/pdf','.xml':'application/xml','.wasm':'application/wasm','.ttf':'font/ttf'};
+const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.pdf':'application/pdf','.xml':'application/xml','.json':'application/json','.wasm':'application/wasm','.ttf':'font/ttf'};
+// Only application assets are public. Never expose arbitrary files in fixtures,
+// source directories, or results (which may contain sensitive local documents).
+const assets=new Set([
+  '/pdfjs/index.html','/pdfjs/bootstrap.js','/pdfjs/app.mjs','/pdfjs/data-model.mjs',
+  '/pdfjs/pdf-reader.mjs','/pdfjs/pdf-reader-worker.js','/pdfjs/field-catalog.json',
+  '/xfa-packet-writer.mjs','/fixtures/official-blank.pdf',
+  ...[1,3,20].map(n=>`/fixtures/datasets-${n}.xml`),
+]);
+const vendorFiles=new Set(['/build/pdf.mjs','/build/pdf.worker.mjs','/build/pdf.sandbox.mjs','/web/pdf_viewer.css','/web/pdf_viewer.mjs']);
+const vendorResource=/^\/(?:cmaps\/[A-Za-z0-9_-]+\.bcmap|standard_fonts\/[A-Za-z0-9_-]+\.(?:pfb|ttf)|wasm\/[A-Za-z0-9_-]+\.(?:wasm|js))$/;
 function createServer(){return http.createServer((req,res)=>{
   const allowed=new Set([`127.0.0.1:${req.socket.localPort}`,`localhost:${req.socket.localPort}`]);
   if(!allowed.has(req.headers.host)){res.writeHead(403);res.end();return;}
@@ -11,17 +21,31 @@ function createServer(){return http.createServer((req,res)=>{
   try{name=decodeURIComponent(new URL(req.url,'http://localhost').pathname);}
   catch{res.writeHead(400);res.end();return;}
   if(name.includes('\0')){res.writeHead(400);res.end();return;}
+  // Decode before checking path components; URL parsing alone does not remove
+  // dot segments containing an encoded slash. Do not normalize these into assets.
+  if(name.includes('\\')||name.split('/').some(p=>p==='.'||p==='..')){res.writeHead(403);res.end();return;}
   if(name==='/')name='/pdfjs/index.html';
   if(name==='/bootstrap.js')name='/pdfjs/bootstrap.js';
-  if(name.startsWith('/vendor/pdfjs/')){base=dist;name=name.slice('/vendor/pdfjs'.length);}
+  if(name.startsWith('/vendor/pdfjs/')){
+    base=dist;name=name.slice('/vendor/pdfjs'.length);
+    if(!vendorFiles.has(name)&&!vendorResource.test(name)){res.writeHead(404);res.end();return;}
+  }
   else if(name==='/vendor/pdf-lib.js'){base=path.dirname(lib);name='/'+path.basename(lib);}
-  else if(!/^\/(pdfjs\/|fixtures\/|xfa-packet-writer\.mjs$)/.test(name)){res.writeHead(404);res.end();return;}
+  else if(!assets.has(name)){res.writeHead(404);res.end();return;}
   file=path.resolve(base,'.'+name);
   if(!file.startsWith(path.resolve(base)+path.sep)){res.writeHead(403);res.end();return;}
-  fs.readFile(file,(error,data)=>{
+  // Resolve every component to prevent symlinks from escaping the selected
+  // asset root. Reject a linked final file as well, including links within root.
+  fs.realpath(file,(error,realFile)=>{
     if(error){res.writeHead(404);res.end();return;}
-    res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-      'Content-Security-Policy':"default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' blob: data:; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(data);
+    let realBase;
+    try{realBase=fs.realpathSync(base);}catch{res.writeHead(404);res.end();return;}
+    if(realFile!==path.join(realBase,name.slice(1))){res.writeHead(403);res.end();return;}
+    fs.readFile(realFile,(error,data)=>{
+      if(error){res.writeHead(404);res.end();return;}
+      res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
+        'Content-Security-Policy':"default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' blob: data:; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(data);
+    });
   });
 });}
 module.exports={createServer};

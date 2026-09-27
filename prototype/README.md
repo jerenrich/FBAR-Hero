@@ -27,6 +27,14 @@ The test blocks external requests, exercises 1/3/20-account layouts, edits the t
 
 `FBAR_PDFJS_DIST` optionally points to an extracted `pdfjs-dist` package instead of the installed package. No Foxit service or license is used by this test.
 
+## Security regression checks
+
+Run `node prototype/scripts/security-test.cjs` from the repository root. It uses the public blank and plain synthetic values to check encoded path traversal, private-file and symlink rejection, compressed PDF limits, saved-work complexity limits, preservation of the current draft, offline recovery, and termination of a stalled parser. Malformed PDFs are built in memory and are never sent to an external service. The timeout case takes 15 seconds.
+
+The server exposes an explicit application asset list and selected PDF.js runtime resources. Other files placed in `fixtures/`, `pdfjs/`, or `results/` are not public. PDF imports and comparisons run in a local worker with a 15-second deadline, a 16 MiB limit per decompression buffer, and a 64 MiB aggregate decompression buffer budget per request. Only the template, datasets and saved form packets are returned to the editor. XML is limited to 8 million characters, 100000 markup openings and 64 levels of nesting; imports allow at most 1000 combined account and repeated owner records. These are prototype resource limits, not filing rules.
+
+The decompression guard uses the pinned pdf-lib 1.17.1 decoder internals inside the worker, including object streams and chained filters. Run the security suite when upgrading that dependency. A timed-out worker is discarded; restarting it requires the local asset server. Existing warmed-worker imports and comparisons can run offline. See the [security review](../output/fbar-security-review.md) for findings and validation.
+
 Writer downloads now include a checksummed XFA state packet for the visible birthday. Native Reader tests confirmed two different DOBs appear without manual entry and survive field validation, save and reopen with all 177 input values intact. PDF.js's preview still shows a blank birthday. Details and reproduction: [Adobe handoff](../output/fbar-reader-handoff.md); tests: `dob-state-test.cjs`, `verify_dob_state.py`, and macOS `adobe_dob_test.py`.
 
 The app enables `restoreAllAddresses` to restore filer, account, owner and preparer address choices; the earlier Part II option remains available for existing tests. The [quality review](../output/fbar-quality-review.md) records three native Reader address round trips and remaining limitations. Run the following from the repository root; the Adobe test requires macOS and the installed desktop Adobe application:
