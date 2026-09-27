@@ -98,6 +98,8 @@ Use `http://127.0.0.1:3141/` while the local server is running. Opening `pdfjs/i
 
 Run `node prototype/scripts/ui-review-test.cjs` for desktop and narrow-screen layouts in light and dark mode, readable dropdown labels and dates, stale preview notices, the unsaved-change warning after preview, preserved panel/scroll state, and readable validation feedback. Screenshots and results use only synthetic data in `results/ui-review/`. The editor styles are scoped away from the PDF preview. A preview does not save the draft; use Save work in progress or Check & download unsigned draft before leaving the page.
 
+Run `node prototype/scripts/currency-format-test.cjs` to check comma formatting for maximum USD values in all four account sections. The test verifies that saved data and PDF export retain plain digits.
+
 ## Save and resume unfinished work
 
 **Save work in progress** downloads a versioned JSON file even when required fields are missing or values are invalid. Before saving, a dialog explicitly explains that this is a saved copy of the user's work, describes how to resume it, and warns that the unencrypted file contains personal and financial information. It covers shared devices and folders, cloud-synced Downloads folders, and choosing a private location. Saving requires the explicit **Save sensitive work file** action. No automatic browser storage or network upload is added.
