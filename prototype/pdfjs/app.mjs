@@ -6,8 +6,11 @@ const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
 $('#save').hidden=!diagnosticMode;
 let inputs=new Map(),history=[],validationActive=false,lastSaved='',lastSavedKind='';
+const revealedAccounts=new WeakSet();
+const accountOrder=new WeakMap();let nextAccountOrder=0;
 let doc=null,draft=null,loadingTask=null,blank=null,model=null,busy=false,reference=null,catalog=null,blankXml=null,synthetic=false,dirty=false;
 const names={FinAcctOwnedSeparately:'Separately owned accounts',FinAcctOwnedJointly:'Jointly owned accounts',NoFinInterestFinAcctOwned:'Signature authority accounts',ConsolidatedAcct:'Consolidated accounts'};
+const categoryLabels={FinAcctOwnedSeparately:'Separate',FinAcctOwnedJointly:'Joint',NoFinInterestFinAcctOwned:'Signature authority',ConsolidatedAcct:'Consolidated'};
 const columns=[['Institution','FinInstName'],['Account number','AccntNumber'],['Maximum USD','MaximumAccntValue'],['Maximum unknown','MaximumAccntUnkn'],['Type code','AccountType'],['Other type description','OtherDesc'],['Street','Address/Address'],['City','Address/City'],['State','Address/State'],['Postal code','Address/ZIP'],['Country','Address/Country']];
 const {field,value,child,records,branches,ownerNames}=data;
 async function assets(){
@@ -24,14 +27,19 @@ function changed(){
 }
 function checkpoint(){
  if(!model)return;
- history.push({xml:data.serialize(model),synthetic,notices:$('#notices').textContent});
+ history.push({xml:data.serialize(model),synthetic,notices:$('#notices').textContent,
+  order:branches.map(branch=>records(model,branch).map(record=>accountOrder.get(record))),
+  revealed:branches.map(branch=>records(model,branch).map(record=>revealedAccounts.has(record)))});
  if(history.length>30)history.shift();
 }
 function updateProgress(){
  if(!model)return;
  const count=branches.reduce((sum,b)=>sum+records(model,b).filter(data.populated).length,0);
  $('#work-summary').textContent=`Report year ${value(model.root,'FilerInformation/CalendarYear')||'not set'} · ${count} account${count===1?'':'s'} · ${dirty?'Unsaved changes':lastSavedKind==='resumed'?'Saved work resumed':lastSavedKind==='work'?'Work file download requested':'PDF download requested'}`;
- for(const branch of branches)for(const [i,account] of records(model,branch).entries()){const summary=$(`[data-view-key="${branch}-detail-${i}"] > summary`);if(summary?.firstChild)summary.firstChild.textContent=`Account ${i+1}: ${value(account,'FinInstName')||'New account'} — address and details`;}
+ for(const [i,{branch,record}] of combinedRecords().entries()){
+  const summary=$(`[data-view-key="${branches[0]}-detail-${i}"] > summary`);
+  if(summary?.firstChild)summary.firstChild.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${categoryLabels[branch]} address and details`;
+ }
  $('#undo').disabled=!history.length;$('#save-work').disabled=false;$('#apply').disabled=false;
 }
 function ask(title,message,actions,{privacy=false}={}){
@@ -193,27 +201,54 @@ function removeRecord(node,branch){
  const siblings=[...node.parentElement.children].filter(n=>n.localName===node.localName);
  if(siblings.length>1)node.remove();else node.replaceWith(data.newRecord(model,branch));changed();renderTable({preserveView:true});setStatus('Record removed. Use Undo to restore it.');$('#undo').focus();
 }
-function accountTable(container,branch,legacy=false){
+function combinedRecords(){
+ const entries=branches.flatMap(branch=>records(model,branch).map((record,index)=>({branch,record,index})).filter(({record,index})=>data.populated(record)||index>0||revealedAccounts.has(record)));
+ if(!entries.length){const record=records(model,branches[0])[0];revealedAccounts.add(record);entries.push({branch:branches[0],record,index:0});}
+ for(const {record} of entries)if(!accountOrder.has(record))accountOrder.set(record,nextAccountOrder++);
+ return entries.sort((a,b)=>accountOrder.get(a.record)-accountOrder.get(b.record));
+}
+function changeOwnership(record,source,target){
+ if(source===target)return;
+ checkpoint();
+ const next=data.newRecord(model,target);
+ for(const [,path] of columns)field(next,path).textContent=value(record,path);
+ accountOrder.set(next,accountOrder.get(record)??nextAccountOrder++);
+ const destination=records(model,target);
+ if(destination.length===1&&!data.populated(destination[0]))destination[0].replaceWith(next);
+ else destination.at(-1).after(next);
+ const sourceRecords=records(model,source);
+ if(sourceRecords.length===1)record.replaceWith(data.newRecord(model,source));else record.remove();
+ revealedAccounts.add(next);
+ changed();renderTable({preserveView:true});
+ const guidance=ownerNames[source]?'Previous owner details were removed. Use Undo to restore them.':target===branches[3]?'Select the consolidated filer type and complete owner details.':ownerNames[target]?'Complete the owner details for this category.':'';
+ setStatus(`Account changed to ${categoryLabels[target]}. ${guidance}`.trim());
+}
+function accountTable(container){
  const cols=columns.slice(0,5),table=document.createElement('table');table.className='account-table';
  const head=table.createTHead().insertRow(),body=table.createTBody();
- if(legacy){table.tHead.id='columns';body.id='rows';}
+ table.tHead.id='columns';body.id='rows';
+ const categoryHeading=document.createElement('th');categoryHeading.textContent='Reporting category';categoryHeading.scope='col';head.append(categoryHeading);
  for(const [label] of cols){const th=document.createElement('th');th.textContent=label==='Type code'?'Account type':label;th.scope='col';head.append(th);}
  const actions=document.createElement('th');actions.textContent='Details';actions.scope='col';head.append(actions);
- const detailsContainer=legacy?$('#separate-details'):document.createElement('div');detailsContainer.replaceChildren();
- for(const [i,record] of records(model,branch).entries()){
+ const detailsContainer=$('#separate-details');detailsContainer.replaceChildren();
+ for(const [i,{branch:recordBranch,record}] of combinedRecords().entries()){
   const tr=body.insertRow();
-  for(const [label,path] of cols){const input=control(field(record,path),metaFor('BSAForm/'+branch+'/'+path),legacy?`${label} ${i+1}`:`${names[branch]} ${i+1} ${label}`);input.dataset.path=path;const td=tr.insertCell();td.dataset.label=label==='Type code'?'Account type':label;td.append(input);}
-  const detail=document.createElement('details');detail.className='account-details';detail.dataset.viewKey=branch+'-detail-'+i;
-  const summary=document.createElement('summary');summary.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — address and details`;detail.append(summary);
+  const select=document.createElement('select');select.setAttribute('aria-label',`Account ${i+1} reporting category`);
+  for(const category of branches)select.add(new Option(categoryLabels[category],category));select.value=recordBranch;
+  select.onchange=()=>changeOwnership(record,recordBranch,select.value);
+  const categoryCell=tr.insertCell();categoryCell.dataset.label='Reporting category';categoryCell.append(select);
+  for(const [label,path] of cols){const input=control(field(record,path),metaFor('BSAForm/'+recordBranch+'/'+path),`${label} ${i+1}`);input.dataset.path=path;const td=tr.insertCell();td.dataset.label=label==='Type code'?'Account type':label;td.append(input);}
+  const detail=document.createElement('details');detail.className='account-details';detail.dataset.viewKey=branches[0]+'-detail-'+i;
+  const summary=document.createElement('summary');summary.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${categoryLabels[recordBranch]} address and details`;detail.append(summary);
   const detailFields=document.createElement('div');detail.append(detailFields);
-  const fields=catalog.fields.filter(f=>f.table==='Accounts'&&f.xml_path.startsWith('BSAForm/'+branch+'[')&&!cols.some(c=>c[1]===f.xml_path.split('/').slice(2).join('/')));
-  fieldTable(detailFields,fields.map(f=>{const path=f.xml_path.split('/').slice(2).join('/');const oldLabel=columns.find(c=>c[1]===path)?.[0];return [field(record,path),f,legacy&&oldLabel?`${oldLabel} ${i+1}`:`${names[branch]} ${i+1} ${labelFor(f)}`];}));
-  renderOwners(detail,branch,record,i);
-  const remove=document.createElement('button');remove.textContent=`Remove account ${i+1}`;remove.onclick=()=>removeRecord(record,branch);detail.append(remove);
+  const fields=catalog.fields.filter(f=>f.table==='Accounts'&&f.xml_path.startsWith('BSAForm/'+recordBranch+'[')&&!cols.some(c=>c[1]===f.xml_path.split('/').slice(2).join('/')));
+  fieldTable(detailFields,fields.map(f=>{const path=f.xml_path.split('/').slice(2).join('/');const oldLabel=columns.find(c=>c[1]===path)?.[0];return [field(record,path),f,oldLabel?`${oldLabel} ${i+1}`:`${names[recordBranch]} ${i+1} ${labelFor(f)}`];}));
+  renderOwners(detail,recordBranch,record,i);
+  const remove=document.createElement('button');remove.textContent=`Remove account ${i+1}`;remove.onclick=()=>removeRecord(record,recordBranch);detail.append(remove);
   detailsContainer.append(detail);
-  const open=document.createElement('button');open.textContent='Details';open.setAttribute('aria-label',`${names[branch]} ${i+1} details`);open.onclick=()=>{detail.open=true;detail.scrollIntoView({block:'start'});summary.focus();};tr.insertCell().append(open);
+  const open=document.createElement('button');open.textContent='Details';open.setAttribute('aria-label',`${names[recordBranch]} ${i+1} details`);open.onclick=()=>{detail.open=true;detail.scrollIntoView({block:'start'});summary.focus();};tr.insertCell().append(open);
  }
- container.replaceChildren(table);if(!legacy)container.after(detailsContainer);
+ container.replaceChildren(table);
 }
 function renderOwners(container,branch,selectedAccount,selectedIndex){
  const owner=ownerNames[branch];if(!owner)return;
@@ -232,31 +267,29 @@ function addAccount(branch,withSynthetic=false){
  checkpoint();
  const list=records(model,branch);if(list.length>=9999)throw Error('The form supports at most 9999 account records per section.');
  const next=data.newRecord(model,branch);
- if(withSynthetic){const first=list[0];for(const path of columns.map(c=>c[1]))field(next,path).textContent=value(first,path);field(next,'FinInstName').textContent='SYNTHETIC BANK '+(list.length+1);field(next,'AccntNumber').textContent='0000TEST'+String(list.length+1).padStart(3,'0');field(next,'MaximumAccntValue').textContent='10000';}
- list.at(-1).after(next);changed();renderTable({preserveView:true});const section=$(`[data-view-key="${branch}"]`);if(section)section.open=true;
+ if(withSynthetic){
+  const shown=combinedRecords(),first=shown.find(({record})=>data.populated(record))?.record||list[0];
+  const number=Math.max(0,...shown.map(({record})=>Number(value(record,'FinInstName').match(/^SYNTHETIC BANK (\d+)$/)?.[1]||0)))+1;
+  for(const path of columns.map(c=>c[1]))field(next,path).textContent=value(first,path);
+  field(next,'FinInstName').textContent='SYNTHETIC BANK '+number;
+  field(next,'AccntNumber').textContent='0000TEST'+String(number).padStart(3,'0');field(next,'MaximumAccntValue').textContent='10000';
+ }
+ list.at(-1).after(next);revealedAccounts.add(next);changed();renderTable({preserveView:true});
 }
 function renderTable({preserveView=false}={}){
  const view=new Map([...$('#editor').querySelectorAll('details[data-view-key]')].map(n=>[n.dataset.viewKey,n.open]));
- const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll,#other-accounts .grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
+ const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
  inputs=new Map();$('#editor').hidden=false;$('#workbar').hidden=false;$('#draft').disabled=false;$('#compare-file').disabled=false;$('#rollover').disabled=false;
  const filing=catalog.fields.filter(f=>f.table==='Filing'&&f.column!=='date_of_birth');
  fieldTable($('#filer-fields'),filing.map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,labelFor(f)]));
  const dob=value(model.root,'FilerInformation/DOB');$('#dob').value=dob?`${dob.slice(4)}-${dob.slice(0,2)}-${dob.slice(2,4)}`:'';
  showDob();inputs.set(field(model.root,'FilerInformation/DOB'),$('#dob'));
- accountTable($('#grid-scroll'),branches[0],true);
- const others=$('#other-accounts');others.replaceChildren();
- for(const branch of branches.slice(1)){
-  const section=document.createElement('details');section.dataset.viewKey=branch;section.open=records(model,branch).some(data.populated);
-  const summary=document.createElement('summary');summary.textContent=names[branch];section.append(summary);
-  const grid=document.createElement('div');grid.className='grid-scroll';grid.tabIndex=0;grid.setAttribute('aria-label',names[branch]+' table');section.append(grid);accountTable(grid,branch);
-  const add=document.createElement('button');add.textContent='Add '+names[branch].toLowerCase().replace(/s$/,'');add.onclick=()=>addAccount(branch);section.append(add);
-  others.append(section);
- }
+ accountTable($('#grid-scroll'));
  fieldTable($('#preparer-fields'),catalog.fields.filter(f=>f.table==='Preparer').map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,'Preparer '+labelFor(f)]));
  if(!preserveView)$('#preparer').open=value(model.root,'FilerInformation/PaidPreparer')==='X';
  if(preserveView){
   for(const n of $('#editor').querySelectorAll('details[data-view-key]'))if(view.has(n.dataset.viewKey))n.open=view.get(n.dataset.viewKey);
-  [...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll,#other-accounts .grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
+  [...document.querySelectorAll('#filer-fields,#preparer-fields,#grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
  }
  updateConditions();if(validationActive)showIssues();updateProgress();
 }
@@ -348,7 +381,12 @@ $('#rollover').onclick=()=>runAction(async()=>{
  if(choice!=='confirm')return;checkpoint();data.rollover(model,$('#next-year').value);changed();renderTable({preserveView:true});setStatus('Report year changed. Balances, unknown-value flags and amendment details cleared; review every account for this year.');});
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#resume-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>10_000_000)throw Error('Choose a work file smaller than 10 MB.');await resumeWork(await file.text());});
-$('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});synthetic=saved.synthetic;$('#notices').textContent=saved.notices;renderTable({preserveView:true});changed();if(data.serialize(model)===lastSaved)dirty=false;updateProgress();setStatus('Previous change undone.');};
+$('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
+ branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
+  const order=saved.order?.[i]?.[j];if(order!==undefined)accountOrder.set(record,order);
+  if(saved.revealed?.[i]?.[j])revealedAccounts.add(record);
+ }));
+ renderTable({preserveView:true});changed();if(data.serialize(model)===lastSaved)dirty=false;updateProgress();setStatus('Previous change undone.');};
 $('#continue-year').onclick=()=>{$('#import-guide').hidden=true;focusField(inputs.get(field(model.root,'FilerInformation/CalendarYear')));};
 $('#prepare-year').onclick=()=>{$('#year-section').open=true;const year=value(model.root,'FilerInformation/CalendarYear');$('#next-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';focusField($('#next-year'));};
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});

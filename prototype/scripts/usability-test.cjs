@@ -16,8 +16,8 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const action=id=>page.locator(`#dialog-actions [data-action="${id}"]`).click();
   const idle=()=>page.waitForFunction(()=>!document.querySelector('#editor').inert);
   const snapshot=()=>page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());});
-  // Details contain the full account address while only five inputs remain in each grid row.
-  assert.equal(await page.locator('#rows tr').first().locator('input,select').count(),5);
+  // Details contain the full account address while ownership and five account fields remain in each grid row.
+  assert.equal(await page.locator('#rows tr').first().locator('input,select').count(),6);
   await input('Separately owned accounts 1 details').click();
   assert(await input('Country 1').isVisible());
   await input('Type code 1').selectOption('Z');
