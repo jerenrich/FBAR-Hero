@@ -148,12 +148,12 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <header><h1>FBAR Magician</h1>
 <p>Prepare an unsigned PDF, review and sign it in Adobe Reader, then upload it yourself.</p>
 <p class="privacy">Processing stays in this browser. No uploads, analytics or automatic storage. Save your work explicitly before leaving; saved files contain sensitive information.</p>
-<p id="startup-help" role="alert">The editor must finish loading before you can choose a PDF. If you opened this HTML file directly, <a href="http://127.0.0.1:3141/">open the working local app</a> instead. Your files stay on this computer.</p>
+<p id="startup-help" role="alert">The editor must finish loading before you can choose a PDF. If loading fails, check your connection and refresh this page. Your files stay on this computer.</p>
 <noscript><p>JavaScript is required to process PDFs locally in this browser.</p></noscript>
 <button id="new" disabled>New blank draft</button><label class="file-button">Import completed FBAR <input id="import-file" type="file" accept="application/pdf,.pdf" disabled></label>
 <label class="file-button">Resume saved work <input id="resume-file" type="file" accept=".json,application/json" disabled></label><p id="resume-help">Resume a work-in-progress JSON file saved by this app. Import completed FBAR is for PDF files.</p><button id="save" hidden disabled>Export PDF.js diagnostic</button>
 <details><summary>Try synthetic data</summary><p>Invented records for testing only. Never submit these PDFs.</p><select id="count" aria-label="Synthetic account count" disabled><option>1</option><option>3</option><option selected>20</option></select><button id="load" disabled>Generate & preview</button></details>
-<p id="status" role="status" aria-live="polite">Loading the local editor…</p>
+<p id="status" role="status" aria-live="polite">Loading the editor…</p>
 <p class="warning">Prototype for this specific FBAR template. Adobe review and validation remain required. Browser preview is approximate and may leave birthday or dropdown labels blank.</p></header>
 <nav id="workbar" aria-label="Draft actions" hidden>
 <span id="work-summary" role="status" aria-live="polite"></span>

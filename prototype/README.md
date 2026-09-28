@@ -53,6 +53,8 @@ The latest complete browser workflow is exercised by `local-workflow-test.cjs`; 
 
 ## Contents
 
+- `asset-manifest.cjs`: shared allowlist and security headers for local development and the static Pages build.
+- `scripts/build-pages.cjs`: creates the isolated, ignored `dist/` publishing folder. See [Cloudflare deployment](../CLOUDFLARE.md) for setup, automatic Git deployments and production smoke tests.
 - `xfa-packet-writer.mjs`: browser JavaScript that appends a datasets update to one fingerprinted public blank PDF. Preserves the original bytes and template. It does not render or sign by itself.
 - `foxit-xfa-adapter.mjs`: experimental bridge to native XFA widget events. Synchronizes the visible DOB and country-dependent requirements; invokes original Sign/Validate buttons. It depends on internal SDK interfaces requiring vendor support before production.
 - `fixtures/`: public blank template, extracted schema/template and invented XML for 1, 3 and 20 separately owned accounts. No values from the user's completed PDF.

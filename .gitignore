@@ -10,3 +10,5 @@ __pycache__/
 .venv/
 node_modules/
 prototype/results/
+prototype/dist/
+.wrangler/

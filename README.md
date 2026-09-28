@@ -27,6 +27,7 @@ FBAR Magician is a prototype for the tested FBAR PDF template. It creates an **u
 
 ## More information
 
+- [Cloudflare Pages deployment and app structure](CLOUDFLARE.md)
 - [How to use the local workflow](output/fbar-local-workflow.md)
 - [Prototype setup and tests](prototype/README.md)
 - [Current quality review and limits](output/fbar-quality-review.md)
