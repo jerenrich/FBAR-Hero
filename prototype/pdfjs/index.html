@@ -119,6 +119,7 @@ dialog::backdrop{background:#18243788}
 dialog h2{margin-top:0;font-size:21px}
 dialog p{white-space:pre-line}
 dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+#export-differences{max-height:32vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 #privacy-warning{padding:12px;background:#fff6df;border-left:4px solid #b67d18}
 :where(#workbar,dialog) :is(button,input):focus-visible{outline:2px solid #367ba8;outline-offset:3px}
 @media(max-width:700px){
@@ -164,7 +165,7 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <section id="import-guide" hidden aria-labelledby="import-heading"><h2 id="import-heading">Review your imported draft</h2><p id="import-summary"></p><button id="continue-year">Continue this year</button><button id="prepare-year">Prepare another year</button></section>
 <section id="issues" hidden aria-labelledby="issues-heading"><h2 id="issues-heading"></h2><p>Select an issue to go to the field. You can save unfinished work at any time.</p><ul id="issue-list"></ul></section>
 <p id="save-note" role="status">Work stays in memory until you choose to save a file.</p>
-<section id="handoff" hidden aria-labelledby="handoff-heading"><h2 id="handoff-heading">Finish in Adobe Reader</h2><p>The PDF data matches your entries. This does not mean the filing is reviewed, signed or submitted.</p><ol><li>Check that the unsigned PDF finished downloading.</li><li>Open it in Adobe Reader and review all details.</li><li>Validate, sign and save the PDF in Reader.</li><li>Upload the saved PDF yourself through the filing service.</li></ol><p>You can use Compare a saved PDF below to check its data against this draft. Comparison does not verify a signature or submission.</p></section>
+<section id="handoff" hidden aria-labelledby="handoff-heading"><h2 id="handoff-heading">Finish in Adobe Reader</h2><p>The in-memory PDF used for download matched your entries. This does not mean the filing is reviewed, signed or submitted.</p><ol><li>Check that the unsigned PDF finished downloading.</li><li>Open it in Adobe Reader and review all details.</li><li>Validate, sign and save the PDF in Reader.</li><li>Upload the saved PDF yourself through the filing service.</li></ol><p>Compare a saved PDF below checks its data against the current draft. Comparison does not verify a signature or submission.</p></section>
 <p>Enter filer details, institution details and accounts, then check and download an unsigned PDF. Saving work in progress is available even with missing or invalid fields.</p>
 <details id="filer-section" open><summary>Filer and filing information</summary><div id="dob-row"><label>Date of birth <input id="dob" type="date"></label><span id="dob-display" aria-live="polite"></span></div><div id="filer-fields" class="field-scroll"></div></details>
 <details id="year-section"><summary>Use these accounts for a different year</summary><p>This clears maximum balances, unknown-value flags, amendment details and late-filing explanations. Check which accounts belong in the new year.</p><label>Report year <input id="next-year" inputmode="numeric" maxlength="4"></label><button id="rollover" disabled>Change year & clear annual values</button></details>
@@ -174,7 +175,8 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <details id="preparer"><summary>Third party preparer</summary><p>Complete this section when Third party preparer is checked in the filer table.</p><div id="preparer-fields" class="field-scroll"></div></details>
 <label class="file-button">Compare a saved PDF <input id="compare-file" type="file" accept="application/pdf,.pdf" disabled></label>
 <p id="editor-status" hidden></p>
-<div id="comparison" role="status">Every download is parsed again and compared against the table.</div><p id="notices"></p>
+<div id="comparison" role="status">The in-memory PDF used for download is re-read and checked automatically.</div><p id="notices"></p>
 </section><p id="preview-warning" hidden>Preview is out of date. Choose Preview to see your latest edits.</p><main id="pages" aria-label="Read only approximate PDF preview"></main>
 <dialog id="action-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-message"><h2 id="dialog-title"></h2><p id="dialog-message"></p><p id="privacy-warning" hidden></p><div class="dialog-actions" id="dialog-actions"></div></dialog>
+<dialog id="export-dialog" aria-labelledby="export-title" aria-describedby="export-summary export-message"><h2 id="export-title"></h2><p id="export-summary"></p><p id="export-message"></p><section id="export-difference-section" hidden><h3>Fields that did not reconcile</h3><pre id="export-differences"></pre></section><div class="dialog-actions"><button id="export-close" class="primary">Close</button></div></dialog>
 <script src="./bootstrap.js"></script></html>

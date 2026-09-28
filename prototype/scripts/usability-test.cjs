@@ -116,6 +116,10 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   // Export remains checked and hands the user a visible completion checklist.
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();const pdf=await pdfDownload;await pdf.saveAs(`${out}/SYNTHETIC-checked.pdf`);await idle();
   assert(await page.locator('#handoff').isVisible());assert.match(await page.locator('#comparison').textContent(),/PDF data matches your entries/);
+  assert.match(await page.locator('#export-title').textContent(),/PDF export payload reconciled/);
+  assert.match(await page.locator('#export-summary').textContent(),/^100% reconciled/);
+  assert.equal(await page.locator('#verify-export').count(),0);
+  await page.locator('#export-close').click();
   assert.match(await page.locator('#handoff').textContent(),/does not mean the filing is reviewed, signed or submitted/);
   await page.screenshot({path:`${out}/handoff.png`});
   await page.locator('#import-file').setInputFiles(`${out}/SYNTHETIC-checked.pdf`);await idle();

@@ -13,7 +13,7 @@ const ownerLinks=new WeakMap();let owners=[];
 const jointBranch='FinAcctOwnedJointly',authorityBranch='NoFinInterestFinAcctOwned';
 const sharedOwnerBranches=[jointBranch,authorityBranch];
 const ownerPaths=['LastName','FirstName','MiddleName','Suffix','OwnerEntityIndicator','TIN','TINTYPEU','Address/Address','Address/City','Address/State','Address/ZIP','Address/Country'];
-let doc=null,draft=null,loadingTask=null,blank=null,model=null,busy=false,reference=null,catalog=null,blankXml=null,synthetic=false,dirty=false;
+let doc=null,draft=null,draftBlob=null,draftComparison=null,loadingTask=null,blank=null,model=null,busy=false,reference=null,catalog=null,blankXml=null,synthetic=false,dirty=false;
 const names={FinAcctOwnedSeparately:'Separately owned accounts',FinAcctOwnedJointly:'Jointly owned accounts',NoFinInterestFinAcctOwned:'Signature authority accounts',ConsolidatedAcct:'Consolidated accounts'};
 const categoryLabels={FinAcctOwnedSeparately:'Separate',FinAcctOwnedJointly:'Joint',NoFinInterestFinAcctOwned:'Signature authority',ConsolidatedAcct:'Consolidated'};
 const columns=[['Institution','FinInstName'],['Account number','AccntNumber'],['Maximum USD','MaximumAccntValue'],['Maximum unknown','MaximumAccntUnkn'],['Type code','AccountType'],['Other type description','OtherDesc'],['Street','Address/Address'],['City','Address/City'],['State','Address/State'],['Postal code','Address/ZIP'],['Country','Address/Country']];
@@ -26,7 +26,7 @@ async function assets(){
  reference=packets.template.bytes;blankXml=new TextDecoder().decode(packets.datasets.bytes);catalog=c;blank=bytes;
 }
 function changed(){
- dirty=true;draft=null;$('#handoff').hidden=true;
+ dirty=true;draft=null;draftBlob=null;draftComparison=null;$('#handoff').hidden=true;
  $('#comparison').textContent='Table changed. Download will run a fresh comparison.';
  $('#preview-warning').hidden=!pages.children.length;
  updateConditions();if(validationActive)showIssues();updateProgress();
@@ -98,11 +98,11 @@ async function resumeWork(text){
  setStatus('Saved work resumed, including unfinished entries. Review and continue editing.');
 }
 function resetSession(){
- history=[];validationActive=false;lastSaved='';lastSavedKind='';clearPreview();
+ history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
  $('#dob').removeAttribute('aria-invalid');$('#dob').removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;$('#import-guide').hidden=true;
  $('#save-note').textContent='Work stays in memory until you choose to save a file.';
- $('#comparison').textContent='Every PDF download is parsed again and compared against your entries.';
+ $('#comparison').textContent='The in-memory PDF used for download is re-read and checked automatically.';
 }
 function updateConditions(){
  if(!model)return;
@@ -492,17 +492,36 @@ function renderTable({preserveView=false}={}){
  }
  updateConditions();if(validationActive)showIssues();updateProgress();
 }
-function showComparison(result){
+function showComparison(result,{generated=false}={}){
  const box=$('#comparison');box.replaceChildren();
- const p=document.createElement('p');p.textContent=result.matched?`PDF data matches your entries: ${result.populatedValues} populated values and record counts match. Review, signing and submission are still separate steps.`:`Data comparison failed: ${result.differences.length} differences. Review these before using this PDF.`;box.append(p);
- if(!result.matched){const ul=document.createElement('ul');for(const d of result.differences.slice(0,100)){const li=document.createElement('li');li.textContent=`${d.kind}: ${describePath(d.field)}`;ul.append(li);}box.append(ul);}
+ const p=document.createElement('p');p.textContent=result.matched?`${generated?'Generated':'Selected'} PDF data matches your entries${generated?' before download':''}: ${result.populatedValues} populated values and record counts match. ${reconciliationText(result)} Review, signing and submission are still separate steps.`:`${generated?'Generated':'Selected'} PDF data comparison failed: ${result.differences.length} differences. ${reconciliationText(result)} Review these before using this PDF.`;box.append(p);
+ if(!result.matched){const ul=document.createElement('ul');for(const d of result.differences.slice(0,100)){const li=document.createElement('li');li.textContent=`${d.kind}: ${describePath(d.field)}`;ul.append(li);}box.append(ul);if(result.differences.length>100){const note=document.createElement('p');note.textContent=`${result.differences.length-100} more differences are listed in the popup.`;box.append(note);}}
  return result;
 }
+function reconciliationText(result){
+ const percent=result.comparedChecks?Math.floor(1000*result.reconciledChecks/result.comparedChecks)/10:100;
+ return `${percent}% reconciled (${result.reconciledChecks} of ${result.comparedChecks} populated PDF fields and record checks).`;
+}
+function showExportResult(result,{stage}={}){
+ const dialog=$('#export-dialog');if(dialog.open)dialog.close();
+ const title={automatic:'PDF export payload reconciled',blocked:'Export blocked: data mismatch',comparison:result.matched?'Saved PDF comparison passed':'Saved PDF comparison failed'};
+ $('#export-title').textContent=title[stage];
+ $('#export-summary').textContent=reconciliationText(result);
+ const messages={automatic:'The temporary in-memory PDF was read back, parsed locally, and compared with your entries. The browser download was requested from that same PDF. Check that the download finished, then review and sign it in Adobe Reader.',blocked:'The generated PDF differs from your entries. No PDF download was requested.',comparison:'The selected PDF was read from disk and compared with your current entries. Signature validity and filing acceptance are separate checks.'};
+ $('#export-message').textContent=messages[stage];
+ $('#export-differences').textContent=result.differences.map((difference,index)=>
+  `${index+1}. ${difference.kind}: ${describePath(difference.field)}`).join('\n');
+ $('#export-difference-section').hidden=!result.differences.length;
+ dialog.showModal();$('#export-close').focus();
+}
 async function buildDraft(){
+ draftBlob=null;draftComparison=null;
  validationActive=true;const errors=showIssues().map(issue=>issue.message);if(errors.length)throw Error(errors.slice(0,12).map(describeError).join('\n')+(errors.length>12?`\nPlus ${errors.length-12} more fields to review.`:''));
  const bytes=await fillBlankTemplate(PDFLib,blank,data.serialize(model),{restoreUnboundDob:true,restoreAllAddresses:true});
- const decoded=await data.readPdf(bytes,reference),result=showComparison(data.comparePdfData(model.root,decoded));
- if(!result.matched)throw Error('PDF comparison failed. Review the differences above.');
+ const blob=new Blob([bytes],{type:'application/pdf'});
+ const decoded=await data.readPdf(new Uint8Array(await blob.arrayBuffer()),reference),result=showComparison(data.comparePdfData(model.root,decoded),{generated:true});
+ if(!result.matched){showExportResult(result,{stage:'blocked'});throw Error('PDF comparison failed. Review the differences in the popup.');}
+ draftBlob=blob;draftComparison=result;
  draft=bytes;return bytes;
 }
 export async function regenerate(){await buildDraft();return openBytes(draft.slice());}
@@ -556,8 +575,9 @@ async function comparePdf(bytes){
  const decoded=await data.readPdf(bytes,reference);const result=showComparison(data.comparePdfData(model.root,decoded,{finalized:true}));
  setStatus('Compared input data. Signature validity and filing acceptance are not checked.');return result;
 }
-function download(bytes,name,type='application/pdf'){const url=URL.createObjectURL(new Blob([bytes],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function clearPreview(){pages.replaceChildren();doc=null;draft=null;$('#save').disabled=true;$('#preview-warning').hidden=true;}
+function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function download(bytes,name,type='application/pdf'){downloadBlob(new Blob([bytes],{type}),name);}
+function clearPreview(){pages.replaceChildren();doc=null;draft=null;draftBlob=null;$('#save').disabled=true;$('#preview-warning').hidden=true;}
 async function runAction(action){
  if(busy)return;const trigger=document.activeElement;busy=true;$('header').inert=true;$('#editor').inert=true;$('#workbar').inert=true;
  setStatus('Working locally…');
@@ -567,9 +587,10 @@ async function runAction(action){
 $('#load').onclick=()=>runAction(async()=>{if(await allowReplace())await generate(Number($('#count').value));});
 $('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();initializeOwners();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
 $('#import-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Reading your FBAR locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});});
-$('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await comparePdf(new Uint8Array(await file.arrayBuffer()));});
+$('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
 $('#dob').oninput=()=>{checkpoint();const iso=$('#dob').value;field(model.root,'FilerInformation/DOB').textContent=iso?iso.slice(5,7)+iso.slice(8,10)+iso.slice(0,4):'';showDob();changed();};
-$('#draft').onclick=()=>runAction(async()=>{const bytes=await buildDraft();download(bytes,synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf');const unusedInstitutions=hasUnusedInstitutions(),unusedOwners=hasUnusedOwners(),unused=unusedInstitutions||unusedOwners;dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('Compared and downloaded. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unusedInstitutions?' Save work in progress to keep unused institution rows.':'')+(unusedOwners?' Save work in progress to keep unused owner rows.':''));});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unusedInstitutions=hasUnusedInstitutions(),unusedOwners=hasUnusedOwners(),unused=unusedInstitutions||unusedOwners;dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('PDF data reconciled in memory and download requested. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unusedInstitutions?' Save work in progress to keep unused institution rows.':'')+(unusedOwners?' Save work in progress to keep unused owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
 $('#add-owner').onclick=()=>{checkpoint();owners.push(Object.fromEntries(ownerPaths.map(path=>[path,''])));changed();renderTable({preserveView:true});$('#owners-scroll tbody tr:last-child input')?.focus();};

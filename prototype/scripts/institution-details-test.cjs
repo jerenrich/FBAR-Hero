@@ -36,6 +36,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   const pdf=await page.evaluate(async()=>Array.from(await experiment.buildDraft()));
   assert.match(await page.locator('#comparison').textContent(),/PDF data matches your entries/);
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
+  await page.locator('#export-close').click();
   assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
   assert.match(await page.locator('#status').textContent(),/Save work in progress to keep unused institution rows/);
   await page.locator('#save-work').click();

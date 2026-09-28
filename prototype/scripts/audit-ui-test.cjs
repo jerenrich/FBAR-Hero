@@ -34,6 +34,8 @@ const {createServer}=require('../pdfjs/server.cjs');
   await page.getByLabel('Maximum USD 1',{exact:true}).fill('0');
   await page.getByLabel('Institution name 1',{exact:true}).fill('SYNTHETIC TEST BANK');
   const download=page.waitForEvent('download');await page.locator('#draft').click();await (await download).saveAs(`${out}/ui-draft.pdf`);
+  assert.match(await page.locator('#export-summary').textContent(),/^100% reconciled/);
+  await page.locator('#export-close').click();
   assert.deepEqual(external,[]);
   await page.screenshot({path:`${out}/read-only-ui.png`});
   fs.writeFileSync(`${out}/ui-results.json`,JSON.stringify({serverCasesPassed:serverCases.length,previewReadOnly:true,diagnosticExportHidden:true,rejected:rejects,externalRequests:external},null,2));

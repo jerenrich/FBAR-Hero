@@ -156,7 +156,11 @@ export function compareRoots(expected,actual,{finalized=false}={}){
   if(x!==y)differences.push({field:path,kind:!b.leaves.has(path)?'missing':!a.leaves.has(path)?'extra':'changed'});
  }
  for(const path of new Set([...a.counts.keys(),...b.counts.keys()]))if(a.counts.get(path)!==b.counts.get(path))differences.push({field:path,kind:'record count'});
- return {matched:!differences.length,populatedValues:[...a.leaves.values()].filter(Boolean).length,differences};
+ const comparedChecks=[...new Set([...a.leaves.keys(),...b.leaves.keys()])].filter(path=>
+  (a.leaves.get(path)||'')||(b.leaves.get(path)||'')).length+
+  new Set([...a.counts.keys(),...b.counts.keys()]).size;
+ return {matched:!differences.length,populatedValues:[...a.leaves.values()].filter(Boolean).length,
+  comparedChecks,reconciledChecks:comparedChecks-differences.length,differences};
 }
 export function comparePdfData(expected,decoded,options={}){
  const result=compareRoots(expected,decoded.root,options),dob=value(expected,'FilerInformation/DOB');
@@ -165,10 +169,14 @@ export function comparePdfData(expected,decoded,options={}){
  if(decoded.packets.form){
   const form=xml(new TextDecoder().decode(decoded.packets.form.bytes));
   const fields=[...form.getElementsByTagNameNS('http://www.xfa.org/schema/xfa-form/2.8/','field')].filter(n=>n.getAttribute('name')==='dob');
-  if(fields.length>1)result.differences.push({field:'Visible date of birth',kind:'duplicate saved fields'});
+  if(fields.length>1){result.comparedChecks++;result.differences.push({field:'Visible date of birth',kind:'duplicate saved fields'});}
   actualDisplay=fields[0]?child(fields[0],'value')?.textContent||'':'';
  }
- if(actualDisplay!==expectedDisplay)result.differences.push({field:'Visible date of birth',kind:'saved display differs'});
+ if(expectedDisplay||actualDisplay){
+  result.comparedChecks++;
+  if(actualDisplay!==expectedDisplay)result.differences.push({field:'Visible date of birth',kind:'saved display differs'});
+  else result.reconciledChecks++;
+ }
  result.matched=!result.differences.length;return result;
 }
 export function rollover(model,year){

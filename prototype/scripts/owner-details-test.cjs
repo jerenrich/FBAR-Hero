@@ -49,6 +49,7 @@ const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
   await page.locator('#add-owner').click();
   await page.getByLabel('Owner 2 Last name or organization name',{exact:true}).fill(plain('UNUSED OWNER'));
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
+  await page.locator('#export-close').click();
   assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
   assert.match(await page.locator('#status').textContent(),/keep unused owner rows/);
   await page.locator('#save-work').click();const download=page.waitForEvent('download');await page.locator('#dialog-actions [data-action=save]').click();
