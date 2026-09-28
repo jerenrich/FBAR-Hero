@@ -13,7 +13,10 @@ const {createServer}=require('../pdfjs/server.cjs');
  try{
   const errors=[],origin=`http://127.0.0.1:${server.address().port}`;
   const open=async()=>{const page=await browser.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(origin);await page.waitForFunction(()=>window.experiment);return page;};
-  const page=await open();await page.evaluate(()=>experiment.generate(3));
+  const page=await open();await page.waitForFunction(()=>!document.querySelector('#new').disabled);
+  assert.equal(await page.locator('#load, #count').count(),0);
+  assert.equal(await page.locator('#status').textContent(),'');
+  await page.evaluate(()=>experiment.generate(3));
   assert.equal(await page.locator('#resume-file').count(),0);
   assert.equal(await page.locator('#save-work').textContent(),'Save PDF');
   await page.locator('#add-institution').click();

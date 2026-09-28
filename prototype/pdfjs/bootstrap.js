@@ -22,8 +22,8 @@
     if(!window.PDFLib)throw new Error('PDF library unavailable');
     await import('/pdfjs/app.mjs');
     if(!window.experiment)throw new Error('Editor failed to initialize');
-    for(const id of ['new','import-file','count','load'])document.getElementById(id).disabled=false;
-    status.textContent='Start a blank draft or import a completed FBAR.';
+    for(const id of ['new','import-file'])document.getElementById(id).disabled=false;
+    status.textContent='';
     help.hidden=true;
   }catch{
     status.textContent='The editor could not start. Check your connection and refresh this page. No PDF has been opened.';

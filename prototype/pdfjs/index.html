@@ -20,17 +20,16 @@ header input::placeholder,#editor input::placeholder,#editor textarea::placehold
 #editor input::selection,#editor textarea::selection{color:#182437;background:#c5e1f5}
 header :is(button,input,select,a):focus-visible,#editor :is(button,input,textarea,select,summary):focus-visible{outline:2px solid #367ba8;outline-offset:2px}
 #status{font-weight:600;color:#355c75;white-space:pre-line;overflow-wrap:anywhere}
+#status:empty{display:none}
 #editor-status{white-space:pre-line;overflow-wrap:anywhere;padding:10px 12px;background:#f0f6fa;border-radius:5px}
 #status[data-kind=error],#editor-status[data-kind=error]{color:#922b21}
 #editor-status[data-kind=error]{background:#fff1ef;border-left:4px solid #b43b30}
-header .warning{color:#805000}
-header .privacy{color:#426355;font-size:13px}
 .file-button{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:100%}
 header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-width:100%;font-size:14px}
 #editor{margin:20px 28px;padding:20px;background:white;border:1px solid #ccd4df;border-radius:8px}
 #editor h2{font-size:18px;margin:20px 0 8px}
-#editor details,header details{margin:14px 0;border:1px solid #d6dee7;border-radius:5px;padding:12px;min-width:0}
-#editor summary,header summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+#editor details{margin:14px 0;border:1px solid #d6dee7;border-radius:5px;padding:12px;min-width:0}
+#editor summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
 #grid-scroll,#editor .grid-scroll{max-height:320px;overflow:auto;margin:12px 0;overscroll-behavior:contain}
 #editor table{border-collapse:collapse;width:100%}
 #editor th,#editor td{border:1px solid #d6dee7;padding:6px;text-align:left;vertical-align:top}
@@ -61,7 +60,7 @@ header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-wid
 .xfaLayer{transform-origin:0 0}
 @media(max-width:700px){
  header,#editor{margin:0;padding:16px}
- #editor details,header details{padding:10px}
+ #editor details{padding:10px}
  .file-button{display:flex;margin-right:0}
  #editor .fields th{width:38%;font-size:13px}
  #editor .fields td :is(input,textarea,select){font-size:16px}
@@ -146,13 +145,11 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 </style>
 <header><h1>FBAR Magician</h1>
 <p>Prepare an unsigned PDF, review and sign it in Adobe Reader, then upload it yourself.</p>
-<p class="privacy">Processing stays in this browser. No uploads, analytics or automatic storage. Save your work explicitly before leaving; saved files contain sensitive information.</p>
 <p id="startup-help" role="alert">The editor must finish loading before you can choose a PDF. If loading fails, check your connection and refresh this page. Your files stay on this computer.</p>
 <noscript><p>JavaScript is required to process PDFs locally in this browser.</p></noscript>
 <button id="new" disabled>New blank draft</button><label class="file-button">Open FBAR <input id="import-file" type="file" accept="application/pdf,.pdf,application/json,.json" disabled></label><button id="save" hidden disabled>Export PDF.js diagnostic</button>
-<details><summary>Try synthetic data</summary><p>Invented records for testing only. Never submit these PDFs.</p><select id="count" aria-label="Synthetic account count" disabled><option>1</option><option>3</option><option selected>20</option></select><button id="load" disabled>Generate & preview</button></details>
 <p id="status" role="status" aria-live="polite">Loading the editor…</p>
-<p class="warning">Prototype for this specific FBAR template. Adobe review and validation remain required. Browser preview is approximate and may leave birthday or dropdown labels blank.</p></header>
+</header>
 <nav id="workbar" aria-label="Draft actions" hidden>
 <span id="work-summary" role="status" aria-live="polite"></span>
 <button id="save-work" disabled>Save PDF</button><button id="undo" disabled>Undo</button>
