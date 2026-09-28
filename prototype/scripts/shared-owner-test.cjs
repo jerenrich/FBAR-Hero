@@ -54,7 +54,7 @@ const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
   await page.getByLabel('Account 2 owner 2',{exact:true}).selectOption('0');
   const expected=await inspect(page),pdf=await page.evaluate(async()=>Array.from(await experiment.buildDraft()));
   await page.locator('#add-owner').click();await page.getByLabel('Owner 2 Last name or organization name',{exact:true}).fill(plain('UNUSED OWNER'));
-  await page.locator('#save-work').click();const event=page.waitForEvent('download');await page.locator('#dialog-actions [data-action=save]').click();const download=await event;
+  const event=page.waitForEvent('download');await page.locator('#save-work').click();const download=await event;
   const filename=path.join(folder,'SYNTHETIC-work.pdf');await download.saveAs(filename);const work=await require('./read-saved-pdf-work.cjs')(filename);
   assert.deepEqual(work.owners.links,[0]);assert.deepEqual(work.owners.authorityLinks,[[0,0],[0]]);
   const resumed=await open();await resumed.evaluate(text=>experiment.resumeWork(text),JSON.stringify(work));

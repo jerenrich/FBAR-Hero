@@ -62,9 +62,8 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     assert.equal(await imported.locator('#rows tr').count(), 3);
     const comparison = await imported.evaluate(bytes => experiment.comparePdf(new Uint8Array(bytes)), Array.from(fs.readFileSync(pdfPath)));
     assert.equal(comparison.matched, true);
-    await imported.locator('#save-work').click();
     const workEvent = imported.waitForEvent('download');
-    await imported.locator('#dialog-actions [data-action=save]').click();
+    await imported.locator('#save-work').click();
     const work = await workEvent;
     const workPath = path.join(output, 'SYNTHETIC-work.pdf');
     await work.saveAs(workPath);

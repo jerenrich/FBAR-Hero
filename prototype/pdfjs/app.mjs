@@ -49,11 +49,9 @@ function updateProgress(){
  }
  $('#undo').disabled=!history.length;$('#save-work').disabled=false;$('#apply').disabled=false;
 }
-function ask(title,message,actions,{privacy=false}={}){
+function ask(title,message,actions){
  const dialog=$('#action-dialog'),previous=document.activeElement;
  $('#dialog-title').textContent=title;$('#dialog-message').textContent=message;
- const warning=$('#privacy-warning');warning.hidden=!privacy;dialog.setAttribute('aria-describedby',privacy?'dialog-message privacy-warning':'dialog-message');
- warning.textContent='Privacy: this file is not encrypted. It contains the personal and financial information you entered, including tax IDs, account numbers and balances. Anyone who can access the file can read it. A shared device, shared folder or cloud-synced Downloads folder may expose it to other people or upload it through your sync service. Choose a private location and handle copies carefully.';
  return new Promise(resolve=>{
   const finish=result=>{if(result==='cancel')setStatus('No changes made. Continue editing.');dialog.close();dialog.oncancel=null;previous?.focus();resolve(result);};
   const buttons=actions.map(([id,label])=>{const button=document.createElement('button');button.textContent=label;button.dataset.action=id;if(id==='save'||id==='confirm')button.className='primary';button.onclick=()=>finish(id);return button;});
@@ -63,11 +61,6 @@ function ask(title,message,actions,{privacy=false}={}){
 }
 async function saveWork(){
  const needsSharedState=hasUnusedInstitutions()||hasUnusedOwners()||hasDuplicateRows(institutions,institutionKey)||hasDuplicateRows(owners,ownerKey);
- const choice=await ask('Save your PDF',
-  'This saves all current entries, including incomplete or invalid ones. Open the PDF here later to continue editing. Review and validate the form in Adobe Reader before filing.\n\nYour browser will download a PDF, usually to Downloads, or ask where to save it. The app does not upload it or store another copy.'+
-  (needsSharedState?'\n\nThis draft has institution or owner rows that its form fields cannot reconstruct. The saved PDF will include extra editing data to preserve those rows.':''),
-  [['cancel','Cancel'],['save','Save PDF']],{privacy:true});
- if(choice!=='save')return false;
  const xml=data.serialize(model);
  const needsWorkState=synthetic||needsSharedState;
  const workState=needsWorkState?JSON.stringify({version:1,datasetsSha256:await sha256(xml),synthetic,institutions:institutionState(),owners:ownerState()}):null;
