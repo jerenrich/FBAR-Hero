@@ -27,12 +27,19 @@ self.onmessage=async({data:bytes})=>{
   allocated=0;
   try{
     const {inspectXfa}=await writer;
-    const {packets}=await inspectXfa(PDFLib,bytes,{packetNames:new Set(['template','datasets','form']),strict:true});
+    const {pdf,packets}=await inspectXfa(PDFLib,bytes,{packetNames:new Set(['template','datasets','form']),strict:true});
     const result=Object.create(null);
     for(const [name,packet] of Object.entries(packets)){
       if(packet.bytes.byteLength>streamLimit)throw Error('PDF packet exceeds the supported size limit.');
       // Do not expose the untrusted PDF object graph or references to the editor.
       result[name]={bytes:packet.bytes.slice()};
+    }
+    const stateRef=pdf.catalog.get(PDFLib.PDFName.of('FBARWorkState'));
+    if(stateRef){
+      if(!(stateRef instanceof PDFLib.PDFRef))throw Error('Invalid saved work details');
+      const state=PDFLib.decodePDFRawStream(pdf.context.lookup(stateRef)).decode();
+      if(state.byteLength>2_000_000)throw Error('Saved work details exceed the supported size limit');
+      result.workState={bytes:state.slice()};
     }
     self.postMessage({packets:result},Object.values(result).map(packet=>packet.bytes.buffer));
   }catch(error){self.postMessage({error:error.message||'Unsupported PDF.'});}

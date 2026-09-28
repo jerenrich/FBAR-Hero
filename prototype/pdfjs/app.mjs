@@ -42,7 +42,7 @@ function checkpoint(){
 function updateProgress(){
  if(!model)return;
  const count=branches.reduce((sum,b)=>sum+records(model,b).filter(data.populated).length,0);
- $('#work-summary').textContent=`Report year ${value(model.root,'FilerInformation/CalendarYear')||'not set'} · ${count} account${count===1?'':'s'} · ${dirty?'Unsaved changes':lastSavedKind==='resumed'?'Saved work resumed':lastSavedKind==='work'?'Work file download requested':'PDF download requested'}`;
+ $('#work-summary').textContent=`Report year ${value(model.root,'FilerInformation/CalendarYear')||'not set'} · ${count} account${count===1?'':'s'} · ${dirty?'Unsaved changes':lastSavedKind==='resumed'?'PDF reopened':'PDF download requested'}`;
  for(const [i,{branch,record}] of combinedRecords().entries()){
   const heading=$(`#owner-details .owner-card[data-account-index="${i}"] h4`);
   if(heading)heading.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${ownerNames[branch]==='PrincipalJointOwner'?'principal joint owner':'owners'}`;
@@ -62,31 +62,42 @@ function ask(title,message,actions,{privacy=false}={}){
  });
 }
 async function saveWork(){
- const choice=await ask('Save your unfinished work to a file',
-  'You are saving all current entries, even incomplete or invalid ones, so you can resume later. This is a work-in-progress file, not a PDF for filing.\n\nYour browser will download a JSON file, usually to Downloads, or ask you where to save it. The app does not upload it or store a separate automatic copy. To reopen it, choose Resume saved work.',
-  [['cancel','Cancel'],['save','Save sensitive work file']],{privacy:true});
+ const needsSharedState=hasUnusedInstitutions()||hasUnusedOwners()||hasDuplicateRows(institutions,institutionKey)||hasDuplicateRows(owners,ownerKey);
+ const choice=await ask('Save your PDF',
+  'This saves all current entries, including incomplete or invalid ones. Open the PDF here later to continue editing. Review and validate the form in Adobe Reader before filing.\n\nYour browser will download a PDF, usually to Downloads, or ask where to save it. The app does not upload it or store another copy.'+
+  (needsSharedState?'\n\nThis draft has institution or owner rows that its form fields cannot reconstruct. The saved PDF will include extra editing data to preserve those rows.':''),
+  [['cancel','Cancel'],['save','Save PDF']],{privacy:true});
  if(choice!=='save')return false;
  const xml=data.serialize(model);
- download(JSON.stringify({format:'fbar-work-in-progress',version:1,synthetic,datasets:xml,institutions:institutionState(),owners:ownerState()}),workFilename(),'application/json');
+ const needsWorkState=synthetic||needsSharedState;
+ const workState=needsWorkState?JSON.stringify({version:1,datasetsSha256:await sha256(xml),synthetic,institutions:institutionState(),owners:ownerState()}):null;
+ const valid=!data.validate(model).length;
+ const bytes=await fillBlankTemplate(PDFLib,blank,xml,{restoreUnboundDob:valid,restoreAllAddresses:valid,workState});
+ const decoded=await data.readPdf(bytes,reference);
+ const result=valid?data.comparePdfData(model.root,decoded):data.compareRoots(model.root,decoded.root);
+ if(!result.matched)throw Error('Saved PDF differs from your entries. No download was requested.');
+ download(bytes,workFilename());
  lastSaved=draftSnapshot();lastSavedKind='work';dirty=false;updateProgress();
- $('#save-note').textContent='Work file download requested. Check that it finished and keep it in a private location. Resume saved work reopens this JSON file. No automatic copy is stored by this app.';
- setStatus('Work file download requested. Check your browser downloads before closing.');return true;
+ $('#save-note').textContent='PDF download requested. Check that it finished and keep it in a private location. Open it here to continue editing. No automatic copy is stored by this app.';
+ setStatus('PDF download requested. Check your browser downloads before closing.');return true;
 }
 function workFilename(){
  const year=value(model.root,'FilerInformation/CalendarYear');
- return `${synthetic?'SYNTHETIC-':''}FBAR-work-in-progress${/^\d{4}$/.test(year)?'-'+year:''}.json`;
+ return `${synthetic?'SYNTHETIC-':''}FBAR-work${/^\d{4}$/.test(year)?'-'+year:''}.pdf`;
 }
+async function sha256(text){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),byte=>byte.toString(16).padStart(2,'0')).join('');}
+function hasDuplicateRows(rows,key){return new Set(rows.map(key)).size!==rows.length;}
 async function allowReplace(){
  if(!model||!dirty)return true;
  const choice=await ask('Keep your current work?', 'Starting or opening another draft replaces the entries currently in this tab. Save your work to a file first, or discard these changes.',[['cancel','Keep editing'],['save','Save work first'],['discard','Discard and continue']]);
  if(choice==='save'){
   if(!await saveWork())return false;
-  return await ask('Check your saved work before continuing', 'Make sure the work file finished downloading and you can find it. Continue only when that copy is available; opening the next draft replaces these entries.',[['cancel','Keep current draft'],['confirm','File saved — continue']])==='confirm';
+  return await ask('Check your saved PDF before continuing', 'Make sure the PDF finished downloading and you can find it. Continue only when that copy is available; opening the next draft replaces these entries.',[['cancel','Keep current draft'],['confirm','PDF saved — continue']])==='confirm';
  }return choice==='discard';
 }
 async function resumeWork(text){
  if(text.length>10_000_000)throw Error('Choose a work file smaller than 10 MB.');
- let saved;try{saved=JSON.parse(text);}catch{throw Error('This is not a valid saved work file. Choose the JSON file downloaded by Save work in progress.');}
+ let saved;try{saved=JSON.parse(text);}catch{throw Error('This is not a valid older saved work file. Open a PDF saved by this app or an older JSON work file.');}
  if(saved?.format!=='fbar-work-in-progress'||saved.version!==1||typeof saved.datasets!=='string'||typeof saved.synthetic!=='boolean')throw Error('Unsupported work file. Choose a version 1 FBAR work-in-progress JSON file.');
  await assets();
  const source=data.business(data.xml(saved.datasets));
@@ -549,7 +560,7 @@ export async function openBytes(bytes){
     }
   }
   $('#preview-warning').hidden=true;
-  setStatus(`Preview updated · ${doc.numPages} pages. Save work in progress or download a checked PDF to keep your changes.`);
+  setStatus(`Preview updated · ${doc.numPages} pages. Save a PDF to keep your changes.`);
   document.querySelector('#save').disabled=false;
   return {version:pdfjs.version,pages:doc.numPages,isPureXfa:doc.isPureXfa};
 }
@@ -558,18 +569,41 @@ export async function generate(count){
  model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(text)));resetSession();initializeInstitutions();initializeOwners();synthetic=true;dirty=true;$('#notices').textContent='Synthetic test records. Never submit these PDFs.';renderTable();return regenerate();
 }
 async function importPdf(bytes,{protect=false}={}){
- await assets();const {root,templateMatches,viewerMetadataExcluded}=await data.readPdf(bytes,reference,{allowCompatibleTemplate:true});
- const next=data.importData(data.createModel(blankXml,catalog),root);
+ await assets();const {root,packets,templateMatches,viewerMetadataExcluded}=await data.readPdf(bytes,reference,{allowCompatibleTemplate:true});
+ let saved=null;
+ if(packets.workState){
+  try{saved=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(packets.workState.bytes));}catch{throw Error('Invalid saved PDF details. The current draft is unchanged.');}
+  const pdfXml=new TextDecoder().decode(packets.datasets.bytes);
+  if(saved?.version!==1||saved.datasetsSha256!==await sha256(pdfXml)||typeof saved.synthetic!=='boolean'||!validWorkState(saved,root))
+   throw Error('Saved PDF details do not match its form data. The current draft is unchanged.');
+ }
+ // Our unfinished PDFs omit the form-state packet, so keep invalid text exactly
+ // as entered even when there is no extra editor state in the PDF catalog.
+ const next=data.importData(data.createModel(blankXml,catalog),root,{preserveValues:!!saved||(templateMatches&&!packets.form)});
  if(!templateMatches)next.notices.unshift('Imported a compatible prior form. New downloads use the current blank form.');
  if(viewerMetadataExcluded)next.notices.push('Excluded prior PDF viewer session records.');
  if(protect&&!await allowReplace())return;
- model=next;synthetic=false;resetSession();initializeInstitutions();initializeOwners();dirty=true;renderTable();
+ model=next;synthetic=saved?.synthetic||false;resetSession();initializeInstitutions(saved?.institutions);initializeOwners(saved?.owners);dirty=!saved;lastSaved=saved?draftSnapshot():'';lastSavedKind=saved?'resumed':'';renderTable();
  $('#comparison').textContent='Imported locally into a new unsigned draft. Review the report year and balances before exporting.';
  const padding=next.notices.filter(n=>n.startsWith('Removed form dropdown padding')).length;
  const notes=next.notices.filter(n=>!n.startsWith('Removed form dropdown padding')).map(n=>n.startsWith('Cleared prior submission state:')?'Cleared prior signing and submission information.':n);
- $('#notices').textContent=[...new Set(['Prior signing state is not copied.',...notes,...(padding?[`Normalized padding in ${padding} option values.`]:[])])].join('\n');
- $('#import-guide').hidden=false;$('#import-summary').textContent=`Detected report year: ${value(model.root,'FilerInformation/CalendarYear')||'not set'}. `+branches.map(b=>`${names[b]}: ${records(model,b).filter(data.populated).length}`).join(' · ')+'. Prior signing state is not copied.';
- setStatus('PDF imported. Your source file is unchanged. Choose whether to continue this year or prepare another year.');return next;
+ $('#notices').textContent=[...new Set([...(synthetic?['Synthetic test records. Never submit these PDFs.']:[]),'Prior signing state is not copied.',...notes,...(padding?[`Normalized padding in ${padding} option values.`]:[])])].join('\n');
+ $('#import-guide').hidden=!!saved;$('#import-summary').textContent=`Detected report year: ${value(model.root,'FilerInformation/CalendarYear')||'not set'}. `+branches.map(b=>`${names[b]}: ${records(model,b).filter(data.populated).length}`).join(' · ')+'. Prior signing state is not copied.';
+ $('#save-note').textContent=saved?'Saved PDF reopened locally. Further edits stay in memory until you save again.':'Imported PDF opened locally. Save a PDF to keep any edits.';
+ setStatus(saved?'Saved PDF reopened, including unfinished entries. Review and continue editing.':'PDF imported. Your source file is unchanged. Choose whether to continue this year or prepare another year.');return next;
+}
+function validWorkState(saved,root){
+ const rows=(state,paths)=>Array.isArray(state?.rows)&&state.rows.length<=1000&&state.rows.every(row=>row&&typeof row==='object'&&paths.every(path=>typeof row[path]==='string'));
+ const links=(items,count)=>Array.isArray(items)&&items.every(index=>Number.isInteger(index)&&index>=-1&&index<count);
+ if(!rows(saved.institutions,institutionColumns.map(([,path])=>path))||!rows(saved.owners,ownerPaths))return false;
+ if(!Array.isArray(saved.institutions.links)||saved.institutions.links.length!==branches.length)return false;
+ if(!branches.every((branch,index)=>{
+  const items=saved.institutions.links[index];return Array.isArray(items)&&items.length===records({root},branch).length&&links(items,saved.institutions.rows.length);
+ }))return false;
+ const joint=records({root},jointBranch),authority=records({root},authorityBranch);
+ if(!Array.isArray(saved.owners.links)||saved.owners.links.length!==joint.length||!links(saved.owners.links,saved.owners.rows.length))return false;
+ return Array.isArray(saved.owners.authorityLinks)&&saved.owners.authorityLinks.length===authority.length&&saved.owners.authorityLinks.every((items,index)=>
+  Array.isArray(items)&&items.length===[...authority[index].children].filter(node=>node.localName===ownerNames[authorityBranch]).length&&links(items,saved.owners.rows.length));
 }
 async function comparePdf(bytes){
  const decoded=await data.readPdf(bytes,reference);const result=showComparison(data.comparePdfData(model.root,decoded,{finalized:true}));
@@ -586,10 +620,10 @@ async function runAction(action){
 }
 $('#load').onclick=()=>runAction(async()=>{if(await allowReplace())await generate(Number($('#count').value));});
 $('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();initializeOwners();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
-$('#import-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Reading your FBAR locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});});
+$('#import-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Reading your FBAR locally…');if(file.name.toLowerCase().endsWith('.json')){if(file.size>10_000_000)throw Error('Choose a saved work file smaller than 10 MB.');await resumeWork(await file.text());return;}if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});});
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
 $('#dob').oninput=()=>{checkpoint();const iso=$('#dob').value;field(model.root,'FilerInformation/DOB').textContent=iso?iso.slice(5,7)+iso.slice(8,10)+iso.slice(0,4):'';showDob();changed();};
-$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unusedInstitutions=hasUnusedInstitutions(),unusedOwners=hasUnusedOwners(),unused=unusedInstitutions||unusedOwners;dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('PDF data reconciled in memory and download requested. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unusedInstitutions?' Save work in progress to keep unused institution rows.':'')+(unusedOwners?' Save work in progress to keep unused owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('PDF data reconciled in memory and download requested. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unused?' Save PDF to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
@@ -602,7 +636,6 @@ $('#rollover').onclick=()=>runAction(async()=>{
  const choice=await ask('Prepare report year '+year+'?',`This changes the report year to ${year} and clears maximum balances and unknown-value flags for ${count} accounts. It also clears amendment details and late-filing explanations. Account numbers, institutions, owners and filer details are kept. You can undo this change.`,[['cancel','Keep current year'],['confirm','Change year and clear annual values']]);
  if(choice!=='confirm')return;checkpoint();data.rollover(model,$('#next-year').value);changed();renderTable({preserveView:true});setStatus('Report year changed. Balances, unknown-value flags and amendment details cleared; review every account for this year.');});
 $('#save-work').onclick=()=>runAction(saveWork);
-$('#resume-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>10_000_000)throw Error('Choose a work file smaller than 10 MB.');await resumeWork(await file.text());});
 $('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);initializeOwners(saved.owners);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
  branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
   const order=saved.order?.[i]?.[j];if(order!==undefined)accountOrder.set(record,order);

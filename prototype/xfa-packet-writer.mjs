@@ -24,7 +24,7 @@ export async function inspectXfa(PDFLib, bytes, {packetNames=null,strict=false}=
   return {pdf,packets};
 }
 
-export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreUnboundDob=false,restoreFilerAndPartIIAddresses=false,restoreAllAddresses=false}={}) {
+export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreUnboundDob=false,restoreFilerAndPartIIAddresses=false,restoreAllAddresses=false,workState=null}={}) {
   const source=new Uint8Array(original);
   const {pdf,packets}=await inspectXfa(PDFLib,source);
   if(!packets.datasets || !packets.template) throw new Error('Missing required packets');
@@ -67,6 +67,17 @@ export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreU
       objects.push({id:formRef.objectNumber,generation:0,body:streamBody(encode(formXml))});
       objects.push({id:acroRef.objectNumber,generation:acroRef.generationNumber,body:encode(acro.toString())});
     }
+  }
+  if(workState!==null) {
+    const state=encode(workState);
+    if(state.length>2_000_000)throw new Error('Saved work details exceed the supported size limit');
+    const {PDFName,PDFRef}=PDFLib;
+    const rootRef=pdf.context.trailerInfo.Root;
+    if(!(rootRef instanceof PDFRef))throw new Error('Expected indirect PDF catalog');
+    const stateRef=PDFRef.of(nextId++);
+    pdf.catalog.set(PDFName.of('FBARWorkState'),stateRef);
+    objects.push({id:stateRef.objectNumber,generation:0,body:streamBody(state)});
+    objects.push({id:rootRef.objectNumber,generation:rootRef.generationNumber,body:encode(pdf.catalog.toString())});
   }
   const xrefId=nextId;
   const ti=pdf.context.trailerInfo;

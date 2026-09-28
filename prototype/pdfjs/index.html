@@ -112,7 +112,6 @@ header input[type=file],#editor input[type=file]{width:250px;min-width:0;max-wid
 #import-guide,#handoff{padding:16px;border:1px solid #bbc8d5;border-radius:6px;background:#f0f6fa;margin-bottom:20px}
 #handoff h2,#import-guide h2{margin-top:0}
 #dob-row{margin:12px 0}
-#resume-help{font-size:13px}
 #save-note{font-size:13px;color:#435a70}
 dialog{font:15px/1.5 system-ui;color:#182437;border:1px solid #bbc8d5;border-radius:10px;padding:24px;width:min(540px,calc(100vw - 40px));box-sizing:border-box;max-height:90vh;overflow:auto}
 dialog::backdrop{background:#18243788}
@@ -151,22 +150,21 @@ dialog .dialog-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 <p class="privacy">Processing stays in this browser. No uploads, analytics or automatic storage. Save your work explicitly before leaving; saved files contain sensitive information.</p>
 <p id="startup-help" role="alert">The editor must finish loading before you can choose a PDF. If loading fails, check your connection and refresh this page. Your files stay on this computer.</p>
 <noscript><p>JavaScript is required to process PDFs locally in this browser.</p></noscript>
-<button id="new" disabled>New blank draft</button><label class="file-button">Import completed FBAR <input id="import-file" type="file" accept="application/pdf,.pdf" disabled></label>
-<label class="file-button">Resume saved work <input id="resume-file" type="file" accept=".json,application/json" disabled></label><p id="resume-help">Resume a work-in-progress JSON file saved by this app. Import completed FBAR is for PDF files.</p><button id="save" hidden disabled>Export PDF.js diagnostic</button>
+<button id="new" disabled>New blank draft</button><label class="file-button">Open FBAR <input id="import-file" type="file" accept="application/pdf,.pdf,application/json,.json" disabled></label><button id="save" hidden disabled>Export PDF.js diagnostic</button>
 <details><summary>Try synthetic data</summary><p>Invented records for testing only. Never submit these PDFs.</p><select id="count" aria-label="Synthetic account count" disabled><option>1</option><option>3</option><option selected>20</option></select><button id="load" disabled>Generate & preview</button></details>
 <p id="status" role="status" aria-live="polite">Loading the editor…</p>
 <p class="warning">Prototype for this specific FBAR template. Adobe review and validation remain required. Browser preview is approximate and may leave birthday or dropdown labels blank.</p></header>
 <nav id="workbar" aria-label="Draft actions" hidden>
 <span id="work-summary" role="status" aria-live="polite"></span>
-<button id="save-work" disabled>Save work in progress</button><button id="undo" disabled>Undo</button>
+<button id="save-work" disabled>Save PDF</button><button id="undo" disabled>Undo</button>
 <button id="apply" disabled>Preview</button><button id="draft" class="primary" disabled>Check &amp; download unsigned draft</button>
 </nav>
 <section id="editor" hidden>
 <section id="import-guide" hidden aria-labelledby="import-heading"><h2 id="import-heading">Review your imported draft</h2><p id="import-summary"></p><button id="continue-year">Continue this year</button><button id="prepare-year">Prepare another year</button></section>
-<section id="issues" hidden aria-labelledby="issues-heading"><h2 id="issues-heading"></h2><p>Select an issue to go to the field. You can save unfinished work at any time.</p><ul id="issue-list"></ul></section>
+<section id="issues" hidden aria-labelledby="issues-heading"><h2 id="issues-heading"></h2><p>Select an issue to go to the field. You can save a PDF at any time.</p><ul id="issue-list"></ul></section>
 <p id="save-note" role="status">Work stays in memory until you choose to save a file.</p>
 <section id="handoff" hidden aria-labelledby="handoff-heading"><h2 id="handoff-heading">Finish in Adobe Reader</h2><p>The in-memory PDF used for download matched your entries. This does not mean the filing is reviewed, signed or submitted.</p><ol><li>Check that the unsigned PDF finished downloading.</li><li>Open it in Adobe Reader and review all details.</li><li>Validate, sign and save the PDF in Reader.</li><li>Upload the saved PDF yourself through the filing service.</li></ol><p>Compare a saved PDF below checks its data against the current draft. Comparison does not verify a signature or submission.</p></section>
-<p>Enter filer details, institution details and accounts, then check and download an unsigned PDF. Saving work in progress is available even with missing or invalid fields.</p>
+<p>Enter filer details, institution details and accounts. Save a PDF at any time, even with missing or invalid fields. Check and download an unsigned draft when you are ready to finish.</p>
 <details id="filer-section" open><summary>Filer and filing information</summary><div id="dob-row"><label>Date of birth <input id="dob" type="date"></label><span id="dob-display" aria-live="polite"></span></div><div id="filer-fields" class="field-scroll"></div></details>
 <details id="year-section"><summary>Use these accounts for a different year</summary><p>This clears maximum balances, unknown-value flags, amendment details and late-filing explanations. Check which accounts belong in the new year.</p><label>Report year <input id="next-year" inputmode="numeric" maxlength="4"></label><button id="rollover" disabled>Change year & clear annual values</button></details>
 <section id="institution-section"><h2 id="institution-heading">Institution Details</h2><button id="add-institution">Add institution</button><p class="grid-hint">Enter each institution once. Changes here update every account linked to it. To remove an institution, choose another one for its accounts first.</p><div id="institution-scroll" class="grid-scroll" tabindex="0" aria-label="Institution Details table"></div></section>

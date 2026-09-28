@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {createServer}=require('../pdfjs/server.cjs');
+const readSavedPdfWork=require('./read-saved-pdf-work.cjs');
 
 (async()=>{
  const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -38,11 +39,11 @@ const {createServer}=require('../pdfjs/server.cjs');
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
   await page.locator('#export-close').click();
   assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
-  assert.match(await page.locator('#status').textContent(),/Save work in progress to keep unused institution rows/);
+  assert.match(await page.locator('#status').textContent(),/Save PDF to keep unattached institution and owner rows/);
   await page.locator('#save-work').click();
   const download=page.waitForEvent('download');await page.locator('#dialog-actions [data-action=save]').click();
   const saved=await download;const file=path.join(folder,saved.suggestedFilename());await saved.saveAs(file);
-  const work=JSON.parse(fs.readFileSync(file,'utf8'));
+  const work=await readSavedPdfWork(file);
   assert.equal(work.institutions.rows.length,4);
   const resumed=await browser.newPage();await resumed.goto(`http://127.0.0.1:${server.address().port}`);
   await resumed.waitForFunction(()=>window.experiment);await resumed.evaluate(text=>experiment.resumeWork(text),JSON.stringify(work));

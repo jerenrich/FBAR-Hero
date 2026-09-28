@@ -66,12 +66,12 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     const workEvent = imported.waitForEvent('download');
     await imported.locator('#dialog-actions [data-action=save]').click();
     const work = await workEvent;
-    const workPath = path.join(output, 'SYNTHETIC-work.json');
+    const workPath = path.join(output, 'SYNTHETIC-work.pdf');
     await work.saveAs(workPath);
     await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     // Editing and checked export still work offline once runtime assets are warm.
     await context.setOffline(true);
-    await imported.locator('#resume-file').setInputFiles(workPath);
+    await imported.locator('#import-file').setInputFiles(workPath);
     await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     const offlineBytes = await imported.evaluate(async () => (await experiment.buildDraft()).length);
     assert(offlineBytes > 0);

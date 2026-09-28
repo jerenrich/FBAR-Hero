@@ -1,5 +1,6 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {createServer}=require('../pdfjs/server.cjs');
+const readSavedPdfWork=require('./read-saved-pdf-work.cjs');
 // Invented business values must stay plain, including negative-test values.
 const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
 (async()=>{
@@ -43,7 +44,7 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const unfinished=await snapshot();await page.locator('#draft').click();await idle();
   assert(await page.locator('#issues').isVisible());
   await page.locator('#save-work').click();
-  assert.match(await page.locator('#dialog-title').textContent(),/Save your unfinished work/);
+  assert.match(await page.locator('#dialog-title').textContent(),/Save your PDF/);
   assert.match(await page.locator('#dialog-message').textContent(),/incomplete or invalid/);
   assert.match(await page.locator('#privacy-warning').textContent(),/not encrypted/);
   assert.match(await page.locator('#privacy-warning').textContent(),/cloud-synced/);
@@ -53,12 +54,12 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await page.locator('#save-work').click();
   const downloadEvent=page.waitForEvent('download');await action('save');const download=await downloadEvent;
   const workPath=`${out}/${download.suggestedFilename()}`;await download.saveAs(workPath);await idle();
-  const work=JSON.parse(fs.readFileSync(workPath,'utf8'));assert.equal(work.datasets,unfinished);assert.equal(work.synthetic,true);
+  const work=await readSavedPdfWork(workPath);assert.equal(work.datasets,unfinished);assert.equal(work.synthetic,true);
   assert.match(await page.locator('#save-note').textContent(),/private location/);
   // Reload in a fresh tab demonstrates there is no hidden browser persistence.
   const resumed=await context.newPage();resumed.on('pageerror',e=>errors.push(e.message));await resumed.goto(origin);await resumed.waitForFunction(()=>window.experiment);
   assert(!await resumed.locator('#editor').isVisible());
-  await resumed.locator('#resume-file').setInputFiles(workPath);await resumed.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved work resumed'));
+  await resumed.locator('#import-file').setInputFiles(workPath);await resumed.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved PDF reopened'));
   assert.equal(await resumed.getByLabel('First name',{exact:true}).inputValue(),'');
   assert.equal(await resumed.getByLabel('Maximum USD 1',{exact:true}).inputValue(),'MISSING');
   assert.equal(await resumed.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());}),unfinished);
@@ -73,10 +74,10 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
    return dm.serialize(m);
   });
   await resumed.locator('#save-work').click();const nestedDownload=resumed.waitForEvent('download');await resumed.locator('#dialog-actions [data-action=save]').click();
-  await (await nestedDownload).saveAs(`${out}/SYNTHETIC-owners-work.json`);await resumed.waitForFunction(()=>!document.querySelector('#editor').inert);
+  await (await nestedDownload).saveAs(`${out}/SYNTHETIC-owners-work.pdf`);await resumed.waitForFunction(()=>!document.querySelector('#editor').inert);
   await resumed.locator('#new').click();await resumed.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('New blank'));
-  await resumed.locator('#resume-file').setInputFiles(`${out}/SYNTHETIC-owners-work.json`);await resumed.locator('#dialog-actions [data-action=discard]').click();
-  await resumed.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved work resumed'));
+  await resumed.locator('#import-file').setInputFiles(`${out}/SYNTHETIC-owners-work.pdf`);await resumed.locator('#dialog-actions [data-action=discard]').click();
+  await resumed.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved PDF reopened'));
   assert.equal(await resumed.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());}),nestedSnapshot);
   await resumed.locator('#draft').click();await resumed.waitForFunction(()=>!document.querySelector('#editor').inert);
   const nestedError=resumed.locator('#issue-list button').filter({hasText:'select a listed value'});assert.equal(await nestedError.count(),1);await nestedError.click();
@@ -88,16 +89,16 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const edited=await snapshot();
   await page.locator('#new').click();await action('cancel');await idle();assert.equal(await snapshot(),edited);
   await page.locator('#import-file').setInputFiles('prototype/results/audit/adobe-signed-plain.pdf');await action('cancel');await idle();assert.equal(await snapshot(),edited);
-  await page.locator('#resume-file').setInputFiles(workPath);await action('cancel');await idle();assert.equal(await snapshot(),edited);
+  await page.locator('#import-file').setInputFiles(workPath);await action('cancel');await idle();assert.equal(await snapshot(),edited);
   // Saving before replacement has a second check so a cancelled browser download cannot silently discard work.
   await page.locator('#new').click();await action('save');
   const replacementDownload=page.waitForEvent('download');await action('save');await replacementDownload;
   assert.match(await page.locator('#dialog-title').textContent(),/Check your saved work/);
   await action('cancel');await idle();assert.equal(await snapshot(),edited);
   // Invalid work-file structure must never replace the existing draft.
-  await page.locator('#resume-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'INVALID',version:1}))});await idle();assert.equal(await snapshot(),edited);
+  await page.locator('#import-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'INVALID',version:1}))});await idle();assert.equal(await snapshot(),edited);
   assert.match(await page.locator('#status').textContent(),/Unsupported work file/);
-  await page.locator('#resume-file').setInputFiles(workPath);await idle();
+  await page.locator('#import-file').setInputFiles(workPath);await idle();
   assert.equal(await snapshot(),unfinished);
   await input('First name').fill(plain('TEST'));await input('Maximum USD 1').fill(plain('10001'));
   // Removal, later edits, and undo preserve the expected sequence.
