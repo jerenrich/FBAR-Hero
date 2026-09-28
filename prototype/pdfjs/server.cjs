@@ -5,14 +5,7 @@ const lib=require.resolve('pdf-lib/dist/pdf-lib.min.js');
 const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.pdf':'application/pdf','.xml':'application/xml','.json':'application/json','.wasm':'application/wasm','.ttf':'font/ttf'};
 // Only application assets are public. Never expose arbitrary files in fixtures,
 // source directories, or results (which may contain sensitive local documents).
-const assets=new Set([
-  '/pdfjs/index.html','/pdfjs/bootstrap.js','/pdfjs/app.mjs','/pdfjs/data-model.mjs',
-  '/pdfjs/pdf-reader.mjs','/pdfjs/pdf-reader-worker.js','/pdfjs/field-catalog.json',
-  '/xfa-packet-writer.mjs','/fixtures/official-blank.pdf',
-  ...[1,3,20].map(n=>`/fixtures/datasets-${n}.xml`),
-]);
-const vendorFiles=new Set(['/build/pdf.mjs','/build/pdf.worker.mjs','/build/pdf.sandbox.mjs','/web/pdf_viewer.css','/web/pdf_viewer.mjs']);
-const vendorResource=/^\/(?:cmaps\/[A-Za-z0-9_-]+\.bcmap|standard_fonts\/[A-Za-z0-9_-]+\.(?:pfb|ttf)|wasm\/[A-Za-z0-9_-]+\.(?:wasm|js))$/;
+const {assets,vendorFiles,vendorResource,securityHeaders}=require('../asset-manifest.cjs');
 function createServer(){return http.createServer((req,res)=>{
   const allowed=new Set([`127.0.0.1:${req.socket.localPort}`,`localhost:${req.socket.localPort}`]);
   if(!allowed.has(req.headers.host)){res.writeHead(403);res.end();return;}
@@ -43,8 +36,7 @@ function createServer(){return http.createServer((req,res)=>{
     if(realFile!==path.join(realBase,name.slice(1))){res.writeHead(403);res.end();return;}
     fs.readFile(realFile,(error,data)=>{
       if(error){res.writeHead(404);res.end();return;}
-      res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-        'Content-Security-Policy':"default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' blob: data:; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"});res.end(data);
+      res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream',...securityHeaders});res.end(data);
     });
   });
 });}
