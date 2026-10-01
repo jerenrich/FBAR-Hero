@@ -1,14 +1,15 @@
 # Cloudflare Pages deployment
 
-FBAR Magician is a static browser application. Cloudflare serves its code and
+FBAR Hero is a static browser application. Cloudflare serves its code and
 public assets; PDF parsing, editing, comparison and generation run on the user's
 device. There are no Pages Functions, database bindings, file upload endpoints,
 analytics scripts or application secrets.
 
 ## Project configuration
 
-- Pages project: `fbarmagician` (Cloudflare requires lowercase project names).
-- GitHub repository: `jerenrich/FBAR-Magician`.
+- Pages project: `fbarhero` (Cloudflare requires lowercase project names).
+- GitHub repository: `jerenrich/FBAR-Hero`.
+- Production URL: `https://fbarhero.pages.dev`.
 - Production branch: `main`; pushes trigger production builds.
 - Preview branches: enabled for other branches.
 - Root directory: `prototype`.
@@ -16,6 +17,11 @@ analytics scripts or application secrets.
 - Build output directory: `dist`.
 - Node version: `24.21.0`, pinned in `prototype/.node-version`.
 - Framework preset: None.
+
+The production project was recreated with native Git integration to obtain the
+new `fbarhero.pages.dev` hostname. The previous project is preserved as
+`fbarhero-legacy` at `https://fbarmagician.pages.dev`, with its deployment history
+intact. Cloudflare does not change a project's hostname when renaming it.
 
 Connect the repository using Cloudflare's native Git integration when creating
 the project. Do not create a Direct Upload project first: it cannot later be
@@ -43,7 +49,7 @@ node prototype/scripts/usability-test.cjs
 The Pages smoke test can also check the deployed site:
 
 ```sh
-npm --prefix prototype run test:pages -- https://fbarmagician.pages.dev
+npm --prefix prototype run test:pages -- https://fbarhero.pages.dev
 ```
 
 It uses only synthetic data, checks security headers and excluded paths, and

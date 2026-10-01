@@ -1,4 +1,4 @@
-# FBAR Magician local workflow
+# FBAR Hero local workflow
 
 The local app now supports a blank draft, completed-PDF import, filer/account/owner/preparer tables, explicit save/resume of unfinished work, undo, year rollover, verified unsigned export, and comparison with a saved PDF. Open the existing local server at `http://127.0.0.1:3141/`; refresh an older tab after saving any work in it.
 

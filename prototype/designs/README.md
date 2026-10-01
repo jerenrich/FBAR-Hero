@@ -1,4 +1,4 @@
-# FBAR Magician design studies
+# FBAR Hero design studies
 
 Three standalone interactive prototypes for comparing different information architectures. They do not change the existing editor or connect to its PDF engine.
 

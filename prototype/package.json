@@ -1,8 +1,8 @@
 {
-  "name": "fbar-magician",
+  "name": "fbar-hero",
   "version": "0.0.1",
   "private": true,
-  "description": "FBAR Magician browser editor and XFA writer with data-only import and export comparison",
+  "description": "FBAR Hero browser editor and XFA writer with data-only import and export comparison",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -10,7 +10,7 @@
     "dev": "node pdfjs/server.cjs",
     "build": "node scripts/build-pages.cjs",
     "preview": "wrangler pages dev dist",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name fbarmagician --branch main",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name fbarhero --branch main",
     "test:pages": "node scripts/pages-test.cjs"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-# FBAR Magician: product and technical specification
+# FBAR Hero: product and technical specification
 
 Prepared 26 September 2026; updated after the browser feasibility prototype. Scope: application specification, PDF analysis and synthetic export tests. A full user-facing app has not been built; nothing has been submitted.
 

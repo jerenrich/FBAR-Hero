@@ -41,4 +41,4 @@ function createServer(){return http.createServer((req,res)=>{
   });
 });}
 module.exports={createServer};
-if(require.main===module)createServer().listen(3141,'127.0.0.1',()=>console.log('FBAR Magician: http://127.0.0.1:3141'));
+if(require.main===module)createServer().listen(3141,'127.0.0.1',()=>console.log('FBAR Hero: http://127.0.0.1:3141'));

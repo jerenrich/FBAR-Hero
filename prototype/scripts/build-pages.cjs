@@ -40,5 +40,5 @@ for (const directory of ['cmaps', 'standard_fonts', 'wasm']) {
 copy(pdfjs, 'LICENSE', 'vendor/pdfjs/LICENSE');
 fs.writeFileSync(path.join(output, '_headers'), '/*\n' + Object.entries(securityHeaders).map(([name, value]) => `  ${name}: ${value}\n`).join(''));
 // A top-level 404 prevents Pages from serving the editor for missing/private paths.
-fs.writeFileSync(path.join(output, '404.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found</title><h1>Page not found</h1><p><a href="/">Open FBAR Magician</a></p></html>\n');
+fs.writeFileSync(path.join(output, '404.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found</title><h1>Page not found</h1><p><a href="/">Open FBAR Hero</a></p></html>\n');
 console.log(`Built ${count + 2} public files in ${output}`);

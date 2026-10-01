@@ -1,6 +1,6 @@
-# FBAR Magician prototype
+# FBAR Hero prototype
 
-FBAR Magician is a local editor prototype that exports one tested template and imports compatible prior variants as data only. It supports data-only import, all cataloged input tables, year rollover, checked unsigned export and comparison with a saved PDF. Final review/signing happens in Adobe Reader. All QA fixture data is invented. **Never submit these PDFs. Never pass a personal PDF to the public SDK demo.**
+FBAR Hero is a local editor prototype that exports one tested template and imports compatible prior variants as data only. It supports data-only import, all cataloged input tables, year rollover, checked unsigned export and comparison with a saved PDF. Final review/signing happens in Adobe Reader. All QA fixture data is invented. **Never submit these PDFs. Never pass a personal PDF to the public SDK demo.**
 
 Synthetic text values use only ASCII letters, digits and spaces. This user preference is recorded in [AGENTS.md](../AGENTS.md) and applies to new fixtures and negative-test data as well.
 
