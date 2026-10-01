@@ -11,7 +11,7 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
 
 (async () => {
   fs.mkdirSync(output, { recursive: true });
-  for (const route of ['/', '/pdfjs/', '/pdfjs/app.mjs', '/bootstrap.js', '/pdfjs/pdf-reader-worker.js', '/vendor/pdf-lib.js', '/vendor/pdfjs/build/pdf.mjs', '/fixtures/official-blank.pdf']) {
+  for (const route of ['/', '/pdfjs/', '/pdfjs/app.mjs', '/pdfjs/ledger.css', '/pdfjs/ledger-ui.mjs', '/bootstrap.js', '/pdfjs/pdf-reader-worker.js', '/vendor/pdf-lib.js', '/vendor/pdfjs/build/pdf.mjs', '/fixtures/official-blank.pdf']) {
     const response = await fetch(origin + route);
     assert.equal(response.status, 200, route);
     for (const [name, value] of Object.entries(securityHeaders)) assert.equal(response.headers.get(name), value, `${route}: ${name}`);
@@ -43,7 +43,10 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     const preview = await page.evaluate(() => experiment.generate(3));
     assert(preview.pages > 0);
     assert.equal(await page.locator('#rows tr').count(), 3);
+    await page.locator('[data-section=institutions]').click();
+    await page.getByRole('button',{name:'Edit institution 1',exact:true}).click();
     await page.getByLabel('Institution name 1', { exact: true }).fill(plain('SYNTHETIC BANK'));
+    await page.locator('#record-form button[type=submit]').click();
     const downloadEvent = page.waitForEvent('download');
     await page.locator('#draft').click();
     const download = await downloadEvent;
@@ -58,7 +61,8 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     await imported.goto(origin + '/pdfjs/index.html');
     await imported.waitForFunction(() => !document.querySelector('#import-file').disabled);
     await imported.locator('#import-file').setInputFiles(pdfPath);
-    await imported.waitForFunction(() => document.querySelector('#status').textContent.startsWith('PDF imported'));
+    await imported.locator('#continue-year').click();
+    await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     assert.equal(await imported.locator('#rows tr').count(), 3);
     const comparison = await imported.evaluate(bytes => experiment.comparePdf(new Uint8Array(bytes)), Array.from(fs.readFileSync(pdfPath)));
     assert.equal(comparison.matched, true);
@@ -71,6 +75,7 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     // Editing and checked export still work offline once runtime assets are warm.
     await context.setOffline(true);
     await imported.locator('#import-file').setInputFiles(workPath);
+    await imported.locator('#continue-year').click();
     await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     const offlineBytes = await imported.evaluate(async () => (await experiment.buildDraft()).length);
     assert(offlineBytes > 0);

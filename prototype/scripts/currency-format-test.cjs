@@ -11,6 +11,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await page.waitForFunction(()=>window.experiment);
   await page.evaluate(()=>experiment.generate(1));
+  await page.locator('[data-section=accounts]').click();
   await page.evaluate(async()=>{window.dataModel=await import('/pdfjs/data-model.mjs');});
 
   const branches=['FinAcctOwnedSeparately','FinAcctOwnedJointly','NoFinInterestFinAcctOwned','ConsolidatedAcct'];
@@ -18,10 +19,12 @@ const {createServer}=require('../pdfjs/server.cjs');
   const first=page.getByLabel('Maximum USD 1',{exact:true});
   assert.equal(await first.inputValue(),'10,001');
   for(const branch of branches){
+   await page.getByRole('button',{name:'Edit account 1',exact:true}).click();
    await category.selectOption(branch);
    const input=page.getByLabel('Maximum USD 1',{exact:true});
    await input.fill('1000000');
    assert.equal(await input.inputValue(),'1,000,000',branch);
+   await page.locator('#close-account').click();
    assert.equal(await page.evaluate(name=>dataModel.value(dataModel.records(experiment.getModel(),name)[0],'MaximumAccntValue'),branch),'1000000',branch);
    if(branch==='FinAcctOwnedSeparately')await page.evaluate(()=>experiment.buildDraft());
   }

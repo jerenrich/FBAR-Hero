@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>FBAR Magician · Design studies</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="study-bar">
+    <a class="study-brand" href="#ledger"><span class="study-dot"></span> FBAR <span>Design studies</span></a>
+    <nav aria-label="Design prototypes">
+      <a href="#ledger" data-design="ledger"><span>01</span> Ledger</a>
+      <a href="#guided" data-design="guided"><span>02</span> Guided</a>
+      <a href="#review" data-design="review"><span>03</span> Review desk</a>
+    </nav>
+    <button class="study-info" data-action="about">About these prototypes <span>↗</span></button>
+  </header>
+  <main id="app"></main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <script src="./app.js"></script>
+</body>
+</html>

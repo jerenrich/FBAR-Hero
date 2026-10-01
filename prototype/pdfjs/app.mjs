@@ -1,13 +1,17 @@
 import * as pdfjs from '/vendor/pdfjs/build/pdf.mjs';
 import {fillBlankTemplate,inspectXfa} from '/xfa-packet-writer.mjs';
 import * as data from './data-model.mjs';
+import {createLedger} from './ledger-ui.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/build/pdf.worker.mjs';
 const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
 $('#save').hidden=!diagnosticMode;
 let inputs=new Map(),history=[],validationActive=false,lastSaved='',lastSavedKind='';
 const revealedAccounts=new WeakSet();
+const accountControls=new WeakMap();let sharedFieldTargets=new Map();
+const sharedSearch={institution:'',owner:''};
 const accountOrder=new WeakMap();let nextAccountOrder=0;
+let accountEdit=null,previousValues=new Map();
 const accountInstitution=new WeakMap();let institutions=[];
 const ownerLinks=new WeakMap();let owners=[];
 const jointBranch='FinAcctOwnedJointly',authorityBranch='NoFinInterestFinAcctOwned';
@@ -19,6 +23,22 @@ const categoryLabels={FinAcctOwnedSeparately:'Separate',FinAcctOwnedJointly:'Joi
 const columns=[['Institution','FinInstName'],['Account number','AccntNumber'],['Maximum USD','MaximumAccntValue'],['Maximum unknown','MaximumAccntUnkn'],['Type code','AccountType'],['Other type description','OtherDesc'],['Street','Address/Address'],['City','Address/City'],['State','Address/State'],['Postal code','Address/ZIP'],['Country','Address/Country']];
 const institutionColumns=[columns[0],...columns.slice(6)];
 const {field,value,child,records,branches,ownerNames}=data;
+const ledger=createLedger(()=>{
+ if(!model)return null;
+ const issues=data.validate(model,{detailed:true});
+ return {
+  year:value(model.root,'FilerInformation/CalendarYear'),
+  filer:[value(model.root,'FilerInformation/FirstName'),value(model.root,'FilerInformation/LastNameOrNameOfOrg')].filter(Boolean).join(' '),
+  institutions:institutions.length,issues:issues.length,
+  accounts:combinedRecords().map(({record,branch})=>({
+   name:value(record,'FinInstName'),number:value(record,'AccntNumber'),country:value(record,'Address/Country'),
+   category:categoryLabels[branch],amount:formatCurrency(value(record,'MaximumAccntValue')),
+   unknown:value(record,'MaximumAccntUnkn')==='X',empty:!data.populated(record),
+   issues:issues.filter(issue=>record.contains(issue.node)).length,controls:accountControls.get(record),
+   previous:previousValues.get(accountOrder.get(record)),
+  })),
+ };
+},{begin:beginAccountEdit,cancel:cancelAccountEdit,commit:commitAccountEdit});
 async function assets(){
  if(blank)return;
  const [pdf,c]=await Promise.all([fetch('/fixtures/official-blank.pdf').then(r=>r.arrayBuffer()),fetch('/pdfjs/field-catalog.json').then(r=>r.json())]);
@@ -26,18 +46,47 @@ async function assets(){
  reference=packets.template.bytes;blankXml=new TextDecoder().decode(packets.datasets.bytes);catalog=c;blank=bytes;
 }
 function changed(){
+ if(accountEdit){updateConditions();if(validationActive)showIssues();updateProgress();return;}
  dirty=true;draft=null;draftBlob=null;draftComparison=null;$('#handoff').hidden=true;
  $('#comparison').textContent='Table changed. Download will run a fresh comparison.';
  $('#preview-warning').hidden=!pages.children.length;
  updateConditions();if(validationActive)showIssues();updateProgress();
 }
-function checkpoint(){
- if(!model)return;
- history.push({xml:data.serialize(model),synthetic,notices:$('#notices').textContent,
+function captureState(){
+ combinedRecords();
+ return {xml:data.serialize(model),synthetic,notices:$('#notices').textContent,
   institutions:institutionState(),owners:ownerState(),
+  previousValues:[...previousValues],
   order:branches.map(branch=>records(model,branch).map(record=>accountOrder.get(record))),
-  revealed:branches.map(branch=>records(model,branch).map(record=>revealedAccounts.has(record)))});
- if(history.length>30)history.shift();
+  revealed:branches.map(branch=>records(model,branch).map(record=>revealedAccounts.has(record)))};
+}
+function restoreRecordState(saved){
+ branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
+  const order=saved.order?.[i]?.[j];if(order!==undefined)accountOrder.set(record,order);
+  if(saved.revealed?.[i]?.[j])revealedAccounts.add(record);
+ }));
+}
+function checkpoint(){
+ if(!model||accountEdit)return;
+ history.push(captureState());if(history.length>30)history.shift();
+}
+function beginAccountEdit(){
+ if(accountEdit)return;
+ const saved=captureState();
+ accountEdit={model,institutions,owners,nextAccountOrder,saved,snapshot:draftSnapshot()};
+ model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});
+ initializeInstitutions(saved.institutions);initializeOwners(saved.owners);restoreRecordState(saved);
+ renderTable({preserveView:true});
+}
+function cancelAccountEdit(){
+ if(!accountEdit)return;
+ ({model,institutions,owners,nextAccountOrder}=accountEdit);accountEdit=null;
+ renderTable({preserveView:true});
+}
+function commitAccountEdit(){
+ if(!accountEdit||draftSnapshot()===accountEdit.snapshot)return false;
+ history.push(accountEdit.saved);if(history.length>30)history.shift();accountEdit=null;
+ changed();setStatus('Account changes saved.');return true;
 }
 function updateProgress(){
  if(!model)return;
@@ -47,7 +96,8 @@ function updateProgress(){
   const heading=$(`#owner-details .owner-card[data-account-index="${i}"] h4`);
   if(heading)heading.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${ownerNames[branch]==='PrincipalJointOwner'?'principal joint owner':'owners'}`;
  }
- $('#undo').disabled=!history.length;$('#save-work').disabled=false;$('#apply').disabled=false;
+ $('#undo').disabled=!history.length;$('#close-account').disabled=!accountEdit||draftSnapshot()===accountEdit.snapshot;$('#save-work').disabled=false;$('#apply').disabled=false;
+ ledger.update();
 }
 function ask(title,message,actions){
  const dialog=$('#action-dialog'),previous=document.activeElement;
@@ -62,8 +112,9 @@ function ask(title,message,actions){
 async function saveWork(){
  const needsSharedState=hasUnusedInstitutions()||hasUnusedOwners()||hasDuplicateRows(institutions,institutionKey)||hasDuplicateRows(owners,ownerKey);
  const xml=data.serialize(model);
- const needsWorkState=synthetic||needsSharedState;
- const workState=needsWorkState?JSON.stringify({version:1,datasetsSha256:await sha256(xml),synthetic,institutions:institutionState(),owners:ownerState()}):null;
+ const priorBalances=priorBalanceState();
+ const needsWorkState=synthetic||needsSharedState||priorBalances.some(items=>items.some(Boolean));
+ const workState=needsWorkState?JSON.stringify({version:1,datasetsSha256:await sha256(xml),synthetic,institutions:institutionState(),owners:ownerState(),priorBalances}):null;
  const valid=!data.validate(model).length;
  const bytes=await fillBlankTemplate(PDFLib,blank,xml,{restoreUnboundDob:valid,restoreAllAddresses:valid,workState});
  const decoded=await data.readPdf(bytes,reference);
@@ -96,15 +147,19 @@ async function resumeWork(text){
  const source=data.business(data.xml(saved.datasets));
  const next=data.importData(data.createModel(blankXml,catalog),source,{preserveValues:true});
  if(!await allowReplace())return;
- model=next;synthetic=saved.synthetic;resetSession();initializeInstitutions(saved.institutions);initializeOwners(saved.owners);dirty=false;lastSaved=draftSnapshot();lastSavedKind='resumed';
+ model=next;synthetic=saved.synthetic;resetSession();initializeInstitutions(saved.institutions);initializeOwners(saved.owners);initializePriorBalances(saved.priorBalances);dirty=false;lastSaved=draftSnapshot();lastSavedKind='resumed';
  $('#notices').textContent=synthetic?'Synthetic test records. Never submit these PDFs.':'';
  renderTable();$('#save-note').textContent='Saved work resumed locally. Further edits stay in memory until you save another file.';
  setStatus('Saved work resumed, including unfinished entries. Review and continue editing.');
+ return next;
 }
 function resetSession(){
+ accountEdit=null;previousValues=new Map();ledger.reset();
+ for(const kind of ['institution','owner']){sharedSearch[kind]='';$('#'+kind+'-search').value='';$('#clear-'+kind+'-search').hidden=true;}
+ $('#import-notes').open=false;
  history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
- $('#dob').removeAttribute('aria-invalid');$('#dob').removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;$('#import-guide').hidden=true;
+ $('#dob')?.removeAttribute('aria-invalid');$('#dob')?.removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;
  $('#save-note').textContent='Work stays in memory until you choose to save a file.';
  $('#comparison').textContent='The in-memory PDF used for download is re-read and checked automatically.';
 }
@@ -120,15 +175,18 @@ function updateConditions(){
  for(const [flag,count] of [['FIInterestIn25OrMore','totalNumFIAccnts'],['SigAuth25OrMore','totalNumSigAuthAccnts']])visible('FilerInformation/'+count,value(r,'FilerInformation/'+flag)==='A');
  const individual=value(r,'FilerInformation/TypeOfFiler')==='A';
  for(const path of ['FirstName','MiddleName','Suffix'])visible('FilerInformation/'+path,individual);
- $('#dob-row').hidden=!individual&&!value(r,'FilerInformation/DOB');
+ if($('#dob-row'))$('#dob-row').hidden=!individual&&!value(r,'FilerInformation/DOB');
  $('#preparer').hidden=value(r,'FilerInformation/PaidPreparer')!=='X'&&!data.populated(child(r,'PaidPreparerInformation'));
  for(const branch of branches)for(const account of records(model,branch)){
   const node=field(account,'OtherDesc'),input=inputs.get(node);
   if(input){const show=value(account,'AccountType')==='Z'||!!node.textContent;input.hidden=!show;input.closest('td')?.querySelector('.not-applicable')?.toggleAttribute('hidden',show);}
  }
 }
-function focusField(input){
+function focusField(input,node){
+ const target=sharedFieldTargets.get(node);
+ if(target){ledger.show(target.kind==='institution'?'institutions':'owners');openRecordEditor(target.kind,target.index,target.path);return;}
  if(!input)return;
+ input=ledger.reveal(input)||input;
  for(let node=input;node;node=node.parentElement){if(node.hidden)node.hidden=false;if(node.tagName==='DETAILS')node.open=true;}
  input.scrollIntoView({block:'center',inline:'nearest'});input.focus({preventScroll:true});
 }
@@ -140,7 +198,7 @@ function showIssues(){
  const counts=new Map(),list=$('#issue-list');list.replaceChildren();
  issues.forEach((issue,index)=>{
   const input=inputs.get(issue.node),li=document.createElement('li'),button=document.createElement('button');
-  button.id='validation-issue-'+index;button.textContent=describeError(issue.message);button.onclick=()=>focusField(input||$('#add-row'));li.append(button);list.append(li);
+  button.id='validation-issue-'+index;button.textContent=describeError(issue.message);button.onclick=()=>focusField(input||$('#add-row'),issue.node);li.append(button);list.append(li);
   if(input){input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),button.id].filter(Boolean).join(' '));
    let section=input.closest('details');
    while(section){counts.set(section,(counts.get(section)||0)+1);section=section.parentElement.closest('details');}
@@ -154,8 +212,11 @@ function showIssues(){
 function metaFor(path){return catalog.fields.find(f=>f.xml_path.replaceAll('[*]','')===path);}
 function labelFor(f){return f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|usd)\b/g,s=>s.toUpperCase()).replace(/^./,s=>s.toUpperCase());}
 function setStatus(message,kind='info'){
+ if(accountEdit)return;
  status.textContent=message;status.dataset.kind=kind;
  const local=$('#editor-status');local.textContent=message;local.dataset.kind=kind;local.hidden=!message;
+ const notes=$('#notices').textContent.trim();
+ $('#import-notes').hidden=!notes||(synthetic&&notes==='Synthetic test records. Never submit these PDFs.');$('#synthetic-note').hidden=!synthetic;
 }
 function describePath(path){
  const parts=path.replace(/\{[^}]*\}/g,'').split('/'),plain=parts.map(s=>s.replace(/\[\d+\]/g,'')).join('/');
@@ -178,7 +239,6 @@ function describeError(message){
   return label+line.slice(end);
  }).join('\n');
 }
-function showDob(){const iso=$('#dob').value;$('#dob-display').textContent=iso?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(iso+'T00:00:00Z')):'';}
 function formatCurrency(value){return /^\d+$/.test(value)?value.replace(/\B(?=(\d{3})+(?!\d))/g,','):value;}
 function currencyInput(input){
  const before=input.value,caret=input.selectionStart,digitsBefore=before.slice(0,caret).replace(/,/g,'').length;
@@ -193,7 +253,7 @@ function currencyInput(input){
  }
  return raw;
 }
-function control(node,meta,label,onValue){
+function control(node,meta,label,onValue,{defer=false}={}){
  const checkbox=meta?.enum?.some(e=>e.xml_value==='X')&&meta.enum.length===2;
  const dropdown=meta?.enum?.length&&!checkbox;
  const input=document.createElement(dropdown?'select':Number(meta?.value_constraints?.text?.maxChars)>=750?'textarea':'input');
@@ -207,25 +267,26 @@ function control(node,meta,label,onValue){
  else if(input.type==='date'){const v=node.textContent;input.value=v?`${v.slice(4)}-${v.slice(0,2)}-${v.slice(2,4)}`:'';}
  else input.value=meta?.column==='maximum_value_usd'?formatCurrency(node.textContent):node.textContent;
  if(meta?.column==='maximum_value_usd')input.inputMode='numeric';
- inputs.set(node,input);input.setAttribute('aria-label',label);input.autocomplete='off';input.spellcheck=false;
+ if(!defer)inputs.set(node,input);input.setAttribute('aria-label',label);input.autocomplete='off';input.spellcheck=false;
  const caption=document.createElement('small');caption.className='choice-description';
  const describe=()=>{
   const text=dropdown?input.selectedOptions[0]?.textContent||'':input.value;
   input.title=checkbox?label:text;
   caption.textContent=dropdown&&input.value&&text.length>30?text:'';caption.hidden=!caption.textContent;
  };
- input.oninput=()=>{checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;onValue?.(node.textContent);describe();changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
+ input.oninput=()=>{if(!defer)checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;onValue?.(node.textContent);describe();if(defer)return;changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
  describe();if(dropdown)input.choiceCaption=caption;return input;
 }
 function fieldTable(container,entries){
  const table=document.createElement('table');table.className='fields';
- for(const [node,meta,label] of entries){const tr=table.insertRow(),th=document.createElement('th');th.textContent=label;th.scope='row';tr.append(th);const input=control(node,meta,label),td=tr.insertCell();td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);}
+ for(const [node,meta,label] of entries){const tr=table.insertRow(),th=document.createElement('th');th.textContent=label;th.scope='row';tr.append(th);const input=control(node,meta,label),td=tr.insertCell();if(meta?.column==='date_of_birth'){input.id='dob';tr.id='dob-row';}td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);}
  container.replaceChildren(table);
 }
 function removeRecord(node,branch){
+ if(branches.includes(branch)&&!accountEdit)ledger.closeAccount();
  checkpoint();
  const siblings=[...node.parentElement.children].filter(n=>n.localName===node.localName);
- if(siblings.length>1)node.remove();else node.replaceWith(data.newRecord(model,branch));changed();renderTable({preserveView:true});setStatus('Record removed. Use Undo to restore it.');$('#undo').focus();
+ if(siblings.length>1)node.remove();else node.replaceWith(data.newRecord(model,branch));changed();renderTable({preserveView:true});setStatus('Record removed. Use Undo to restore it.');if(!accountEdit)$('#undo').focus();
 }
 function combinedRecords(){
  const entries=branches.flatMap(branch=>records(model,branch).map((record,index)=>({branch,record,index})).filter(({record,index})=>data.populated(record)||index>0||revealedAccounts.has(record)));
@@ -240,6 +301,15 @@ function institutionState(){return {
  links:branches.map(branch=>records(model,branch).map(record=>institutions.indexOf(accountInstitution.get(record))))
 };}
 function draftSnapshot(){return JSON.stringify([data.serialize(model),institutionState(),ownerState()]);}
+function priorBalanceState(){return branches.map(branch=>records(model,branch).map(record=>previousValues.get(accountOrder.get(record))||null));}
+function initializePriorBalances(saved){
+ combinedRecords();
+ previousValues=new Map();
+ branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
+  const prior=saved?.[i]?.[j];
+  if(prior&&typeof prior.year==='string'&&/^\d{4}$/.test(prior.year)&&typeof prior.amount==='string'&&typeof prior.unknown==='boolean')previousValues.set(accountOrder.get(record),{year:prior.year,amount:prior.amount,unknown:prior.unknown});
+ }));
+}
 function hasUnusedInstitutions(){return institutions.some(institution=>!branches.some(branch=>records(model,branch).some(record=>accountInstitution.get(record)===institution)));}
 function initializeInstitutions(saved){
  institutions=[];
@@ -263,38 +333,7 @@ function copyInstitution(record,institution){
  for(const [,path] of institutionColumns)field(record,path).textContent=institution?.[path]||'';
  if(institution)accountInstitution.set(record,institution);else accountInstitution.delete(record);
 }
-function refreshInstitutionOptions(){
- for(const select of document.querySelectorAll('#rows select[data-institution]')){
-  const chosen=select.value;
-  select.replaceChildren(new Option('Select an institution',''),...institutions.map((row,i)=>new Option(institutionLabel(row,i),String(i))));
-  select.value=chosen;
- }
- updateProgress();
-}
-function institutionTable(container){
- const table=document.createElement('table');table.className='institution-table';
- const head=table.createTHead().insertRow(),body=table.createTBody();
- for(const [label] of institutionColumns){const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);}
- const actionHeading=document.createElement('th');actionHeading.scope='col';actionHeading.textContent='Actions';head.append(actionHeading);
- for(const [index,institution] of institutions.entries()){
-  const tr=body.insertRow();
-  for(const [label,path] of institutionColumns){
-   const node=document.createElement('value');node.textContent=institution[path];
-   const input=control(node,metaFor('BSAForm/'+branches[0]+'/'+path),`Institution ${label==='Institution'?'name':label.toLowerCase()} ${index+1}`,text=>{
-    institution[path]=text;
-    for(const branch of branches)for(const record of records(model,branch))if(accountInstitution.get(record)===institution)field(record,path).textContent=text;
-    if(path==='FinInstName'||path==='Address/City'||path==='Address/Country')refreshInstitutionOptions();
-   });
-   for(const branch of branches)for(const record of records(model,branch))if(accountInstitution.get(record)===institution)inputs.set(field(record,path),input);
-   const td=tr.insertCell();td.dataset.label=label;td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);
-  }
-  const td=tr.insertCell(),remove=document.createElement('button');remove.textContent=`Remove institution ${index+1}`;
-  remove.disabled=branches.some(branch=>records(model,branch).some(record=>accountInstitution.get(record)===institution));
-  remove.title=remove.disabled?'Select another institution for linked accounts before removing this one':'';
-  remove.onclick=()=>{checkpoint();institutions.splice(index,1);changed();renderTable({preserveView:true});};td.append(remove);
- }
- container.replaceChildren(table);
-}
+function institutionTable(container){sharedTable(container,'institution');}
 function ownerNodes(record,branch=record.localName){return [...record.children].filter(node=>node.localName===ownerNames[branch]);}
 function sharedOwnerNodes(){return sharedOwnerBranches.flatMap(branch=>records(model,branch).flatMap(record=>ownerNodes(record,branch)));}
 function ownerValues(node){return Object.fromEntries(ownerPaths.map(path=>[path,value(node,path)]));}
@@ -328,39 +367,73 @@ function copyOwner(node,owner){
  for(const path of ownerPaths)field(node,path).textContent=owner?.[path]||'';
  if(owner)ownerLinks.set(node,owner);else ownerLinks.delete(node);
 }
-function refreshOwnerOptions(){
- for(const select of document.querySelectorAll('#rows select[data-owner]')){
-  const chosen=select.value;
-  select.replaceChildren(new Option('Select an owner',''),...owners.map((owner,index)=>new Option(ownerLabel(owner,index),String(index))));
-  select.value=chosen;
- }
+function ownerTable(container){sharedTable(container,'owner');}
+function linkedRecords(kind,row){
+ return combinedRecords().filter(({record})=>kind==='institution'?accountInstitution.get(record)===row:ownerNodes(record).some(node=>ownerLinks.get(node)===row));
 }
-function ownerTable(container){
- const table=document.createElement('table');table.className='owner-table institution-table';
+function sharedTable(container,kind){
+ const rows=kind==='institution'?institutions:owners,table=document.createElement('table');table.className='shared-table';
+ const query=sharedSearch[kind].trim().toLowerCase();let visible=0;
  const head=table.createTHead().insertRow(),body=table.createTBody();
- const fields=ownerPaths.map(path=>[path,metaFor('BSAForm/'+jointBranch+'/PrincipalJointOwner/'+path)]);
- for(const label of ['Owner',...fields.map(([,meta])=>labelFor(meta)),'Actions']){
-  const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);
- }
- for(const [index,owner] of owners.entries()){
-  const tr=body.insertRow(),number=tr.insertCell();number.dataset.label='Owner';number.textContent=`Owner ${index+1}`;
-  for(const [path,meta] of fields){
-   const node=document.createElement('value');node.textContent=owner[path];
-   const input=control(node,meta,`Owner ${index+1} ${labelFor(meta)}`,text=>{
-    owner[path]=text;
-    for(const linkedNode of sharedOwnerNodes())if(ownerLinks.get(linkedNode)===owner)field(linkedNode,path).textContent=text;
-    if(['LastName','FirstName','MiddleName','Suffix'].includes(path))refreshOwnerOptions();
-   });
-   for(const linkedNode of sharedOwnerNodes())if(ownerLinks.get(linkedNode)===owner)inputs.set(field(linkedNode,path),input);
-   const td=tr.insertCell();td.dataset.label=labelFor(meta);td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);
+ const labels=kind==='institution'?['Institution','Address','Country','Accounts','']:['Owner','Tax ID','Address','Accounts',''];
+ for(const label of labels){const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);}
+ rows.forEach((row,index)=>{
+  const tr=body.insertRow(),linked=linkedRecords(kind,row);
+  const address=[row['Address/Address'],row['Address/City'],row['Address/State'],row['Address/ZIP']].filter(Boolean).join(', ');
+  const ownerName=(row.OwnerEntityIndicator==='X'?[row.LastName]:[row.FirstName,row.MiddleName,row.LastName,row.Suffix]).filter(Boolean).join(' ');
+  const values=kind==='institution'?[row.FinInstName||'New institution',address||'Not entered',row['Address/Country']||'Not entered',String(linked.length)]:[ownerName||'New owner',row.TIN||'Not entered',[address,row['Address/Country']].filter(Boolean).join(' · ')||'Not entered',String(linked.length)];
+  tr.hidden=!!query&&!Object.values(row).join(' ').toLowerCase().includes(query);if(!tr.hidden)visible++;
+  values.forEach((text,index)=>{const td=tr.insertCell();td.textContent=text;td.dataset.label=labels[index];});
+  const td=tr.insertCell(),edit=document.createElement('button');edit.type='button';edit.className='row-edit';edit.textContent='✎';edit.setAttribute('aria-label',`Edit ${kind} ${index+1}`);edit.dataset.editKind=kind;edit.dataset.index=String(index);
+  edit.onclick=()=>openRecordEditor(kind,index);td.append(edit);
+  const targets=kind==='institution'?linked.map(({record})=>record):sharedOwnerNodes().filter(node=>ownerLinks.get(node)===row);
+  for(const target of targets)for(const path of kind==='institution'?institutionColumns.map(([,path])=>path):ownerPaths){
+   const node=field(target,path);inputs.set(node,edit);sharedFieldTargets.set(node,{kind,index,path});
   }
-  const td=tr.insertCell();td.dataset.label='Actions';const remove=document.createElement('button');remove.textContent=`Remove owner ${index+1}`;
-  remove.disabled=sharedOwnerNodes().some(node=>ownerLinks.get(node)===owner);
-  remove.title=remove.disabled?'Select another owner for linked accounts before removing this one':'';
-  remove.onclick=()=>{checkpoint();owners.splice(index,1);changed();renderTable({preserveView:true});};td.append(remove);
- }
+ });
+ if(!visible){const cell=body.insertRow().insertCell();cell.colSpan=labels.length;cell.className='empty-register';cell.textContent=rows.length?`No ${kind==='institution'?'institutions':'owners'} match your search.`:`No ${kind==='institution'?'institutions':'owners'} yet. Add one to get started.`;}
  container.replaceChildren(table);
- if(!owners.length){const hint=document.createElement('p');hint.textContent='No owners yet. Add an owner to select for joint or signature authority accounts.';container.append(hint);}
+ $('#'+kind+'-results').textContent=`${visible} of ${rows.length} ${kind==='institution'?'institutions':'owners'} shown`;
+ $('#clear-'+kind+'-search').hidden=!sharedSearch[kind];
+}
+function openRecordEditor(kind,index,focusPath){
+ const rows=kind==='institution'?institutions:owners,paths=kind==='institution'?institutionColumns.map(([,path])=>path):ownerPaths;
+ const isNew=index===undefined,position=isNew?rows.length:index,row=isNew?Object.fromEntries(paths.map(path=>[path,''])):rows[index];
+ if(!row)return;
+ const pending={...row},dialog=$('#record-dialog'),previous=document.activeElement;
+ const table=document.createElement('table');table.className='fields';const controls=new Map();
+ const linked=isNew?[]:linkedRecords(kind,row);
+ $('#record-title').textContent=`${isNew?'Add':'Edit'} ${kind}${isNew?'':' '+(index+1)}`;
+ $('#record-note').textContent=linked.length?`Saving updates ${linked.length} linked account${linked.length===1?'':'s'}.`:'This record can be selected from account details.';
+ const issues=validationActive?data.validate(model,{detailed:true}):[];
+ for(const path of paths){
+  const meta=metaFor('BSAForm/'+(kind==='institution'?branches[0]+'/'+path:jointBranch+'/PrincipalJointOwner/'+path));
+  const label=kind==='institution'?institutionColumns.find(entry=>entry[1]===path)[0]:labelFor(meta);
+  const node=document.createElement('value');node.textContent=pending[path];
+  const input=control(node,meta,kind==='institution'?`Institution ${label==='Institution'?'name':label.toLowerCase()} ${position+1}`:`Owner ${position+1} ${label}`,text=>{pending[path]=text;},{defer:true});
+  const tr=table.insertRow(),th=document.createElement('th');th.scope='row';th.textContent=label;tr.append(th);const td=tr.insertCell();td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);controls.set(path,input);
+  if(issues.some(issue=>sharedFieldTargets.get(issue.node)?.kind===kind&&sharedFieldTargets.get(issue.node)?.index===index&&sharedFieldTargets.get(issue.node)?.path===path))input.setAttribute('aria-invalid','true');
+ }
+ $('#record-fields').replaceChildren(table);
+ const close=()=>{dialog.close();$('#record-fields').replaceChildren();dialog.oncancel=null;$('#record-form').onsubmit=null;$('#record-remove').onclick=null;$('#record-cancel').onclick=null;};
+ const returnFocus=()=>{
+  const edit=document.querySelector(`[data-edit-kind="${kind}"][data-index="${position}"]`);
+  (edit?.getClientRects().length?edit:$('#'+kind+'-search')).focus({preventScroll:true});
+ };
+ const cancel=()=>{close();previous?.focus({preventScroll:true});};
+ $('#record-cancel').onclick=cancel;dialog.oncancel=e=>{e.preventDefault();cancel();};
+ const remove=$('#record-remove');remove.hidden=isNew;remove.disabled=!!linked.length;remove.textContent=`Remove ${kind}`;remove.title=linked.length?`Choose another ${kind} for linked accounts before removing this one.`:'';
+ remove.onclick=()=>{if(linked.length)return;checkpoint();rows.splice(index,1);close();changed();renderTable({preserveView:true});setStatus(`${kind==='institution'?'Institution':'Owner'} removed. Use Undo to restore it.`);returnFocus();};
+ $('#record-form').onsubmit=e=>{
+  e.preventDefault();checkpoint();if(isNew)rows.push(pending);else Object.assign(row,pending);
+  if(!isNew){
+   if(kind==='institution')for(const {record} of linked)copyInstitution(record,row);
+   else for(const node of sharedOwnerNodes())if(ownerLinks.get(node)===row)copyOwner(node,row);
+  }
+  close();changed();renderTable({preserveView:true});setStatus(`${kind==='institution'?'Institution':'Owner'} saved.${linked.length?' Linked accounts updated.':''}`);returnFocus();
+ };
+ dialog.showModal();
+ (controls.get(focusPath)||controls.values().next().value)?.focus();
 }
 function changeOwnership(record,source,target){
  if(source===target)return;
@@ -381,7 +454,7 @@ function changeOwnership(record,source,target){
  const sourceRecords=records(model,source);
  if(sourceRecords.length===1)record.replaceWith(data.newRecord(model,source));else record.remove();
  revealedAccounts.add(next);
- changed();renderTable({preserveView:true});
+ renderTable({preserveView:true});changed();
  const guidance=sharedOwnerBranches.includes(target)?(target===authorityBranch?'Select an owner and enter your title with that owner.':'Select a principal joint owner from Owners.') : sharedOwnerBranches.includes(source)?'Owners remain available in Owners. Use Undo to restore account-specific details.':ownerNames[source]?'Previous owner details were removed. Use Undo to restore them.':target===branches[3]?'Select the consolidated filer type and complete owner details.':target===jointBranch?'Select a joint owner from Owners.':ownerNames[target]?'Complete the owner details for this category.':'';
  setStatus(`Account changed to ${categoryLabels[target]}. ${guidance}`.trim());
 }
@@ -412,6 +485,7 @@ function accountTable(container){
    const td=tr.insertCell();td.dataset.label=label==='Type code'?'Account type':label;td.append(input);
    if(path==='OtherDesc'){const empty=document.createElement('span');empty.className='not-applicable';empty.textContent='—';td.append(empty);}
   }
+  accountControls.set(record,{number:inputs.get(field(record,'AccntNumber')),amount:inputs.get(field(record,'MaximumAccntValue')),ownership:select});
   const ownerCell=tr.insertCell();ownerCell.dataset.label='Owner';
   if(sharedOwnerBranches.includes(recordBranch))renderOwnerSelections(ownerCell,recordBranch,record,i);
   else ownerCell.textContent='—';
@@ -466,7 +540,7 @@ function renderOwners(container,branch,selectedAccount,selectedIndex){
  }
 }
 function addAccount(branch,withSynthetic=false){
- checkpoint();
+ beginAccountEdit();checkpoint();
  const list=records(model,branch);if(list.length>=9999)throw Error('The form supports at most 9999 account records per section.');
  const next=data.newRecord(model,branch);
  if(withSynthetic){
@@ -478,14 +552,14 @@ function addAccount(branch,withSynthetic=false){
   const institution=institutionValues(next);institutions.push(institution);accountInstitution.set(next,institution);
  }
  list.at(-1).after(next);revealedAccounts.add(next);changed();renderTable({preserveView:true});
+ ledger.openAccount(combinedRecords().findIndex(entry=>entry.record===next));
 }
 function renderTable({preserveView=false}={}){
+ const focused=$('#account-dialog').open&&document.activeElement.closest('#account-dialog')?document.activeElement.getAttribute('aria-label'):null;
  const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#institution-scroll,#owners-scroll,#grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
- inputs=new Map();$('#editor').hidden=false;$('#workbar').hidden=false;$('#draft').disabled=false;$('#compare-file').disabled=false;$('#rollover').disabled=false;
- const filing=catalog.fields.filter(f=>f.table==='Filing'&&f.column!=='date_of_birth');
+ inputs=new Map();sharedFieldTargets=new Map();$('#editor').hidden=false;$('#workbar').hidden=false;$('#draft').disabled=false;$('#compare-file').disabled=false;
+ const filing=catalog.fields.filter(f=>f.table==='Filing');
  fieldTable($('#filer-fields'),filing.map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,labelFor(f)]));
- const dob=value(model.root,'FilerInformation/DOB');$('#dob').value=dob?`${dob.slice(4)}-${dob.slice(0,2)}-${dob.slice(2,4)}`:'';
- showDob();inputs.set(field(model.root,'FilerInformation/DOB'),$('#dob'));
  accountTable($('#grid-scroll'));
  institutionTable($('#institution-scroll'));
  ownerTable($('#owners-scroll'));
@@ -495,6 +569,7 @@ function renderTable({preserveView=false}={}){
   [...document.querySelectorAll('#filer-fields,#preparer-fields,#institution-scroll,#owners-scroll,#grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
  }
  updateConditions();if(validationActive)showIssues();updateProgress();
+ if(focused&&$('#account-dialog').open)[...document.querySelectorAll('#account-dialog [aria-label]')].find(el=>el.getAttribute('aria-label')===focused)?.focus({preventScroll:true});
 }
 function showComparison(result,{generated=false}={}){
  const box=$('#comparison');box.replaceChildren();
@@ -576,16 +651,18 @@ async function importPdf(bytes,{protect=false}={}){
  if(!templateMatches)next.notices.unshift('Imported a compatible prior form. New downloads use the current blank form.');
  if(viewerMetadataExcluded)next.notices.push('Excluded prior PDF viewer session records.');
  if(protect&&!await allowReplace())return;
- model=next;synthetic=saved?.synthetic||false;resetSession();initializeInstitutions(saved?.institutions);initializeOwners(saved?.owners);dirty=!saved;lastSaved=saved?draftSnapshot():'';lastSavedKind=saved?'resumed':'';renderTable();
+ model=next;synthetic=saved?.synthetic||false;resetSession();initializeInstitutions(saved?.institutions);initializeOwners(saved?.owners);initializePriorBalances(saved?.priorBalances);dirty=!saved;lastSaved=saved?draftSnapshot():'';lastSavedKind=saved?'resumed':'';renderTable();
  $('#comparison').textContent='Imported locally into a new unsigned draft. Review the report year and balances before exporting.';
  const padding=next.notices.filter(n=>n.startsWith('Removed form dropdown padding')).length;
  const notes=next.notices.filter(n=>!n.startsWith('Removed form dropdown padding')).map(n=>n.startsWith('Cleared prior submission state:')?'Cleared prior signing and submission information.':n);
  $('#notices').textContent=[...new Set([...(synthetic?['Synthetic test records. Never submit these PDFs.']:[]),'Prior signing state is not copied.',...notes,...(padding?[`Normalized padding in ${padding} option values.`]:[])])].join('\n');
- $('#import-guide').hidden=!!saved;$('#import-summary').textContent=`Detected report year: ${value(model.root,'FilerInformation/CalendarYear')||'not set'}. `+branches.map(b=>`${names[b]}: ${records(model,b).filter(data.populated).length}`).join(' · ')+'. Prior signing state is not copied.';
  $('#save-note').textContent=saved?'Saved PDF reopened locally. Further edits stay in memory until you save again.':'Imported PDF opened locally. Save a PDF to keep any edits.';
  setStatus(saved?'Saved PDF reopened, including unfinished entries. Review and continue editing.':'PDF imported. Your source file is unchanged. Choose whether to continue this year or prepare another year.');return next;
 }
 function validWorkState(saved,root){
+ if(saved.priorBalances!==undefined&&(!Array.isArray(saved.priorBalances)||saved.priorBalances.length!==branches.length||!branches.every((branch,i)=>{
+  const items=saved.priorBalances[i];return Array.isArray(items)&&items.length===records({root},branch).length&&items.every(prior=>prior===null||(prior&&typeof prior.year==='string'&&/^\d{4}$/.test(prior.year)&&typeof prior.amount==='string'&&prior.amount.length<=4096&&typeof prior.unknown==='boolean'));
+ })))return false;
  const rows=(state,paths)=>Array.isArray(state?.rows)&&state.rows.length<=1000&&state.rows.every(row=>row&&typeof row==='object'&&paths.every(path=>typeof row[path]==='string'));
  const links=(items,count)=>Array.isArray(items)&&items.every(index=>Number.isInteger(index)&&index>=-1&&index<count);
  if(!rows(saved.institutions,institutionColumns.map(([,path])=>path))||!rows(saved.owners,ownerPaths))return false;
@@ -612,29 +689,84 @@ async function runAction(action){
  finally{busy=false;$('header').inert=false;$('#editor').inert=false;$('#workbar').inert=false;if(document.activeElement===document.body&&trigger?.isConnected)trigger.focus({preventScroll:true});}
 }
 $('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();initializeOwners();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
-$('#import-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Reading your FBAR locally…');if(file.name.toLowerCase().endsWith('.json')){if(file.size>10_000_000)throw Error('Choose a saved work file smaller than 10 MB.');await resumeWork(await file.text());return;}if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});});
+$('#import-file').onchange=async e=>{
+ const file=e.target.files[0];e.target.value='';if(!file)return;let choice;
+ await runAction(async()=>{
+  setStatus('Reading your FBAR locally…');let imported;
+  if(file.name.toLowerCase().endsWith('.json')){
+   if(file.size>10_000_000)throw Error('Choose a saved work file smaller than 10 MB.');
+   imported=await resumeWork(await file.text());
+  }else{
+   if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');
+   imported=await importPdf(new Uint8Array(await file.arrayBuffer()),{protect:true});
+  }
+  if(imported)choice=await chooseImportedYear();
+ });
+ if(choice)ledger.show(choice==='prepare'?'accounts':'overview',{focus:true});
+};
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
-$('#dob').oninput=()=>{checkpoint();const iso=$('#dob').value;field(model.root,'FilerInformation/DOB').textContent=iso?iso.slice(5,7)+iso.slice(8,10)+iso.slice(0,4):'';showDob();changed();};
 $('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('PDF data reconciled in memory and download requested. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unused?' Save PDF to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
-$('#add-owner').onclick=()=>{checkpoint();owners.push(Object.fromEntries(ownerPaths.map(path=>[path,''])));changed();renderTable({preserveView:true});$('#owners-scroll tbody tr:last-child input')?.focus();};
-$('#add-institution').onclick=()=>{checkpoint();institutions.push(Object.fromEntries(institutionColumns.map(([,path])=>[path,''])));changed();renderTable({preserveView:true});const row=$('#institution-scroll tbody tr:last-child');row?.querySelector('input,select')?.focus();};
-$('#apply').onclick=()=>runAction(regenerate);
-$('#rollover').onclick=()=>runAction(async()=>{
- const year=$('#next-year').value;if(!/^\d{4}$/.test(year))throw Error('Enter a four digit report year.');
- const count=branches.reduce((n,b)=>n+records(model,b).filter(data.populated).length,0);
- const choice=await ask('Prepare report year '+year+'?',`This changes the report year to ${year} and clears maximum balances and unknown-value flags for ${count} accounts. It also clears amendment details and late-filing explanations. Account numbers, institutions, owners and filer details are kept. You can undo this change.`,[['cancel','Keep current year'],['confirm','Change year and clear annual values']]);
- if(choice!=='confirm')return;checkpoint();data.rollover(model,$('#next-year').value);changed();renderTable({preserveView:true});setStatus('Report year changed. Balances, unknown-value flags and amendment details cleared; review every account for this year.');});
+$('#add-owner').onclick=()=>openRecordEditor('owner');
+$('#add-institution').onclick=()=>openRecordEditor('institution');
+for(const kind of ['institution','owner']){
+ const refresh=()=>{sharedTable($('#'+(kind==='institution'?'institution-scroll':'owners-scroll')),kind);if(validationActive)showIssues();};
+ $('#'+kind+'-search').oninput=e=>{sharedSearch[kind]=e.target.value;refresh();};
+ $('#clear-'+kind+'-search').onclick=()=>{sharedSearch[kind]='';$('#'+kind+'-search').value='';refresh();$('#'+kind+'-search').focus();};
+}
+$('#apply').onclick=()=>runAction(async()=>{await regenerate();ledger.showPreview();});
+$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Check and download your unsigned draft when ready.');if(issues.length)$('#issues').scrollIntoView({block:'start'});};
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);initializeOwners(saved.owners);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
- branches.forEach((branch,i)=>records(model,branch).forEach((record,j)=>{
-  const order=saved.order?.[i]?.[j];if(order!==undefined)accountOrder.set(record,order);
-  if(saved.revealed?.[i]?.[j])revealedAccounts.add(record);
- }));
+ restoreRecordState(saved);previousValues=new Map(saved.previousValues||[]);
  renderTable({preserveView:true});changed();if(draftSnapshot()===lastSaved)dirty=false;updateProgress();setStatus('Previous change undone.');};
-$('#continue-year').onclick=()=>{$('#import-guide').hidden=true;focusField(inputs.get(field(model.root,'FilerInformation/CalendarYear')));};
-$('#prepare-year').onclick=()=>{$('#year-section').open=true;const year=value(model.root,'FilerInformation/CalendarYear');$('#next-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';focusField($('#next-year'));};
+function applyRollover(year){
+ checkpoint();
+ const sourceYear=value(model.root,'FilerInformation/CalendarYear');
+ previousValues=new Map(combinedRecords().map(({record})=>[accountOrder.get(record),{year:sourceYear,amount:value(record,'MaximumAccntValue'),unknown:value(record,'MaximumAccntUnkn')==='X'}]));
+ data.rollover(model,year);changed();renderTable({preserveView:true});
+ setStatus(`Report year changed to ${year}. Balances, unknown-value flags, amendment details and late-filing explanations cleared; review every account for this year. You can undo this change.`);
+}
+function chooseImportedYear(){
+ const dialog=$('#import-dialog'),year=value(model.root,'FilerInformation/CalendarYear');
+ const count=branches.reduce((n,b)=>n+records(model,b).filter(data.populated).length,0);
+ $('#import-summary').textContent=`Reporting year: ${year||'not set'} · ${count} account${count===1?'':'s'}. Choose how to use this report before editing.`;
+ $('#continue-year-description').textContent=`Keep the ${year||'current'} reporting year and all imported balances and details.`;
+ $('#import-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';
+ $('#import-year-effects').textContent=`Starting another year clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
+ const clearError=()=>{$('#import-year-error').hidden=true;$('#import-year-error').textContent='';$('#import-year').removeAttribute('aria-invalid');};
+ clearError();$('#import-choices').hidden=false;$('#import-year-form').hidden=true;
+ return new Promise(resolve=>{
+  const finish=choice=>{
+   dialog.close();dialog.oncancel=null;dialog.onkeydown=null;$('#continue-year').onclick=null;$('#prepare-year').onclick=null;
+   $('#import-year-back').onclick=null;$('#import-year-form').onsubmit=null;$('#import-year').oninput=null;resolve(choice);
+  };
+  const back=()=>{clearError();$('#import-year-form').hidden=true;$('#import-choices').hidden=false;$('#prepare-year').focus();};
+  $('#continue-year').onclick=()=>{setStatus(`Continuing report year ${year||'not set'}. Imported balances and details are kept.`);finish('continue');};
+  $('#prepare-year').onclick=()=>{$('#import-choices').hidden=true;$('#import-year-form').hidden=false;$('#import-year').focus();$('#import-year').select();};
+  $('#import-year-back').onclick=back;$('#import-year').oninput=clearError;
+  $('#import-year-form').onsubmit=e=>{
+   e.preventDefault();const next=$('#import-year').value;
+   if(!/^\d{4}$/.test(next)||next===year){
+    $('#import-year-error').textContent=next===year?'Choose a different year, or go back to continue this year.':'Enter a four digit reporting year.';
+    $('#import-year-error').hidden=false;$('#import-year').setAttribute('aria-invalid','true');$('#import-year').focus();return;
+   }
+   applyRollover(next);finish('prepare');
+  };
+  // Escape returns from year entry, but cannot silently decide how to use a report.
+  dialog.oncancel=e=>{e.preventDefault();if(!$('#import-year-form').hidden)back();};
+  dialog.onkeydown=e=>{
+   if(e.key!=='Tab')return;
+   const controls=[...dialog.querySelectorAll('button,input')].filter(el=>!el.disabled&&el.getClientRects().length);
+   const index=controls.indexOf(document.activeElement);
+   if(index===-1||(!e.shiftKey&&index===controls.length-1)||(e.shiftKey&&index===0)){
+    e.preventDefault();controls[e.shiftKey?controls.length-1:0]?.focus();
+   }
+  };
+  dialog.showModal();$('#import-title').focus();
+ });
+}
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
-window.experiment={generate,openBytes,regenerate,importPdf,comparePdf,buildDraft,resumeWork,getDraft:()=>draft?.slice(),getModel:()=>model,version:pdfjs.version};
+window.experiment={generate,openBytes,regenerate,importPdf,comparePdf,buildDraft,resumeWork,getDraft:()=>draft?.slice(),getModel:()=>accountEdit?.model||model,version:pdfjs.version};

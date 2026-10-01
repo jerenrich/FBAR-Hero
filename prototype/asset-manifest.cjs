@@ -1,6 +1,7 @@
 // Shared public boundary for the loopback server and the Pages build.
 const assets = new Set([
   '/pdfjs/index.html', '/pdfjs/bootstrap.js', '/pdfjs/app.mjs', '/pdfjs/data-model.mjs',
+  '/pdfjs/ledger.css', '/pdfjs/ledger-ui.mjs',
   '/pdfjs/pdf-reader.mjs', '/pdfjs/pdf-reader-worker.js', '/pdfjs/field-catalog.json',
   '/xfa-packet-writer.mjs', '/fixtures/official-blank.pdf',
   ...[1, 3, 20].map(n => `/fixtures/datasets-${n}.xml`),

@@ -22,7 +22,7 @@
     if(!window.PDFLib)throw new Error('PDF library unavailable');
     await import('/pdfjs/app.mjs');
     if(!window.experiment)throw new Error('Editor failed to initialize');
-    for(const id of ['new','import-file'])document.getElementById(id).disabled=false;
+    for(const id of ['new','import-file','start-new','start-import'])document.getElementById(id).disabled=false;
     status.textContent='';
     help.hidden=true;
   }catch{

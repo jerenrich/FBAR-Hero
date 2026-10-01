@@ -40,6 +40,7 @@ const path=require('node:path');
   assert.match(await page.locator('#export-summary').textContent(),/^100% reconciled/);
   await page.locator('#export-close').click();
 
+  await page.locator('[data-section=filer]').click();
   await page.getByLabel('First name',{exact:true}).fill('CHANGED');
   await page.locator('#compare-file').setInputFiles(file);
   await page.waitForFunction(()=>document.querySelector('#export-title').textContent==='Saved PDF comparison failed');

@@ -1,13 +1,13 @@
 # FBAR Magician
 
-FBAR Magician helps you fill out an FBAR more efficiently. Instead of working through the PDF one field at a time, you can enter filer and account details in organized tables, check your entries, and download an unsigned PDF for final review.
+FBAR Magician helps you fill out an FBAR more efficiently. Its Ledger workspace brings filer details, institutions, owners and accounts into separate sections. Search the account register, open an account to edit its details, check your entries, and download an unsigned PDF for final review.
 
 If you filed in a previous year, you can import your completed FBAR and copy its accounts into a new draft. Choose the next reporting year, then review the accounts and add that year's balances. The app clears prior-year balances and other year-specific answers during this step so they are not carried forward by mistake.
 
 ## What you can do
 
 - **Start fresh or pick up where you left off.** Create a blank draft or open an FBAR PDF to continue editing or reuse a previous filing.
-- **Manage accounts in one place.** Add and edit accounts, addresses, owners, and filer details in tables that work on desktop and narrow screens.
+- **Manage accounts in one place.** See every account in a compact table with full account numbers and small completion icons. Edit maximum USD inline, see the carried prior year value on hover, and save or cancel other account edits in a dialog, and manage reusable institutions and owners in edit dialogs. The workspace adapts to desktop and narrow screens.
 - **Reuse accounts next year.** Carry account details forward while clearing annual values for review.
 - **Catch issues before downloading.** Follow links from validation messages to the fields that need attention, then download a checked unsigned PDF.
 - **Keep control of your files.** The app processes documents in your browser. Save a PDF whenever you want to keep your work; it does not upload your documents.
