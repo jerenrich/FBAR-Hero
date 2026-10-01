@@ -18,10 +18,7 @@ analytics scripts or application secrets.
 - Node version: `24.21.0`, pinned in `prototype/.node-version`.
 - Framework preset: None.
 
-The production project was recreated with native Git integration to obtain the
-new `fbarhero.pages.dev` hostname. The previous project is preserved as
-`fbarhero-legacy` at `https://fbarmagician.pages.dev`, with its deployment history
-intact. Cloudflare does not change a project's hostname when renaming it.
+The production project uses native Git integration at `fbarhero.pages.dev`.
 
 Connect the repository using Cloudflare's native Git integration when creating
 the project. Do not create a Direct Upload project first: it cannot later be
