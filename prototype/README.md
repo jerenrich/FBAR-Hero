@@ -110,6 +110,8 @@ Run `pdf-save-test.cjs`, `currency-format-test.cjs` and `export-reconciliation-t
 
 Run `node prototype/scripts/currency-format-test.cjs` to check comma formatting for maximum USD values in all four account sections. The test verifies that saved data and PDF export retain plain digits.
 
+Run `node prototype/scripts/filer-choices-test.cjs` to check all official options in the filer and preparer dropdowns, their stored XML codes, every conditional filer branch, preservation of populated values when choices change, and validation navigation into the grouped layout. It uses only plain synthetic values and blocks external requests.
+
 ## Save and resume unfinished work
 
 **Save PDF** starts a PDF download directly, even when required fields are missing or values are invalid. Its form data preserves unfinished entries. The app adds an editor-specific catalog entry only when unattached or identical institution or owner rows cannot be reconstructed from form fields, or when synthetic test data must retain its test-only status. Checked Reader handoff PDFs never include this entry. Saved PDFs contain sensitive personal and financial information; keep them in a private location. No automatic browser storage or network upload is added.
