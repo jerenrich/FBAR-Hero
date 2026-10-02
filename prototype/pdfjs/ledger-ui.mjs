@@ -12,6 +12,7 @@ export function createLedger(getSnapshot, editActions) {
  let section = 'filer', selected = null, latest = null, visibleIndices=[];
  const show = (next, {focus = false} = {}) => {
   if (!sections[next]) return;
+  if(section==='filer'&&next!=='filer')editActions.leaveFiler?.();
   section = next;
   $('.page-heading').hidden = false;
   $('#preview-panel').hidden = true;

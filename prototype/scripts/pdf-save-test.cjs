@@ -5,6 +5,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 const PDFLib=require('pdf-lib');
 const {createServer}=require('../pdfjs/server.cjs');
+const {filerInput}=require('./filer-test-utils.cjs');
 
 (async()=>{
  const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -28,7 +29,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   await page.getByLabel('Owner 1 Last name or organization name',{exact:true}).fill('UNUSED OWNER');
   await page.locator('#record-form button[type=submit]').click();
   await page.locator('[data-section=filer]').click();
-  await page.getByLabel('First name',{exact:true}).fill('');
+  await filerInput(page,'First name').fill('');
   await page.locator('[data-section=accounts]').click();
   await page.getByRole('button',{name:'Edit account 1',exact:true}).click();
   await page.getByLabel('Maximum USD 1',{exact:true}).fill('MISSING');await page.locator('#close-account').click();
@@ -69,7 +70,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   const plainDraft=await open();await plainDraft.locator('#start-new').click();
   await plainDraft.waitForFunction(()=>!document.querySelector('#editor').hidden);
   await plainDraft.locator('[data-section=filer]').click();
-  await plainDraft.locator('#filer-fields').getByLabel('Country code',{exact:true}).fill(' INVALID ');
+  await filerInput(plainDraft,'Country code').fill(' INVALID ');
   const ordinaryXml=await plainDraft.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());});
   const ordinaryDownload=plainDraft.waitForEvent('download');await plainDraft.locator('#save-work').click();
   assert.equal(await plainDraft.locator('#action-dialog').isVisible(),false);

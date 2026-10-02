@@ -4,6 +4,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 const {createServer}=require('../pdfjs/server.cjs');
 const catalog=require('../../output/fbar-field-catalog.json');
+const {filerInput}=require('./filer-test-utils.cjs');
 const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
 const labelFor=f=>f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|usd)\b/g,s=>s.toUpperCase()).replace(/^./,s=>s.toUpperCase());
 
@@ -16,7 +17,7 @@ const labelFor=f=>f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|usd)\b/g,s
   await context.route('**/*',route=>route.request().url().startsWith(origin)?route.continue():(external.push(route.request().url()),route.abort()));
   await page.goto(origin);await page.waitForFunction(()=>window.experiment);await page.evaluate(()=>experiment.generate(3));
   await page.locator('[data-section=filer]').click();
-  const input=label=>page.getByLabel(label,{exact:true});
+  const input=label=>filerInput(page,label);
   const visible=async(label,expected)=>assert.equal(await input(label).isVisible(),expected,label);
   const value=xmlPath=>page.evaluate(async p=>{const dm=await import('/pdfjs/data-model.mjs');return dm.value(experiment.getModel().root,p);},xmlPath.replace(/^BSAForm\//,''));
   await input('Tax ID').fill('');await input('Third party preparer').check();
@@ -50,7 +51,7 @@ const labelFor=f=>f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|usd)\b/g,s
    await input(flag).selectOption('A');await input(count).fill('');await input(flag).selectOption('B');await visible(count,false);await input(flag).selectOption('A');await visible(count,true);
    await input(count).fill(plain('26'));await input(flag).selectOption('B');await visible(count,true);
   }
-  for(const select of await page.locator('#preparer-fields select').all())await select.selectOption('');
+  for(const meta of catalog.fields.filter(f=>f.table==='Preparer'&&f.enum?.length&&!f.enum.some(e=>e.xml_value==='X')))await input('Preparer '+labelFor(meta)).selectOption('');
   await input('Third party preparer').uncheck();assert(await page.locator('#preparer').isHidden());
   await input('Third party preparer').check();assert(await page.locator('#preparer').isVisible());
   await input('Preparer First name').fill(plain('SYNTHETIC'));await input('Third party preparer').uncheck();assert(await page.locator('#preparer').isVisible());

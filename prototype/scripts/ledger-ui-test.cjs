@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require('playwright');
 const {createServer} = require('../pdfjs/server.cjs');
+const {filerInput,filerControl}=require('./filer-test-utils.cjs');
 const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
 
 (async()=>{
@@ -69,7 +70,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await page.locator('#add-institution').click();await input('Institution name 4').fill(plain('UNUSED BANK'));await page.locator('#record-form button[type=submit]').click();
   await nav('owners');await page.locator('#add-owner').click();
   await input('Owner 1 Last name or organization name').fill(plain('UNUSED OWNER'));await page.locator('#record-form button[type=submit]').click();
-  await nav('filer');await input('First name').fill('');
+  await nav('filer');await filerInput(page,'First name').fill('');
   await nav('accounts');await edit(1);await input('Maximum USD 1').fill(plain('MISSING'));await page.locator('#close-account').click();
   const snapshot=await page.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());});
   const download=page.waitForEvent('download');await page.locator('#save-work').click();
@@ -106,14 +107,14 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   for(const invalid of [plain(''),plain('MISS'),plain('2025')]){
    await reopened.locator('#import-year').fill(invalid);await submit.click();
    assert(await reopened.locator('#import-year-error').isVisible());assert(await reopened.locator('#import-dialog').isVisible());
-   assert.equal(await reopened.getByLabel('Report year',{exact:true}).inputValue(),'2025');
+   assert.equal(await reopened.locator('[data-filer-column=report_year] dd').textContent(),'2025');
   }
   await reopened.keyboard.press('Escape');assert(await reopened.locator('#import-choices').isVisible());
   assert.equal(await reopened.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());}),snapshot);
   await reopened.locator('#prepare-year').click();await reopened.locator('#import-year').fill(plain('2026'));
   await reopened.screenshot({path:path.join(output,'import-year-390.png')});
   await submit.click();await reopened.waitForFunction(()=>!document.querySelector('#editor').inert);
-  assert(await reopened.locator('#panel-accounts').isVisible());assert.equal(await reopened.getByLabel('Report year',{exact:true}).inputValue(),'2026');
+  assert(await reopened.locator('#panel-accounts').isVisible());assert.equal(await reopened.locator('[data-filer-column=report_year] dd').textContent(),'2026');
   assert.equal(await reopened.getByLabel('Maximum USD 1',{exact:true}).inputValue(),'');
   assert.equal(await reopened.getByLabel('Account number 1',{exact:true}).inputValue(),'0000TEST001');
   assert.match(await reopened.locator('#institution-scroll').textContent(),/UNUSED BANK/);
@@ -129,8 +130,9 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   // Rollover is available through the required opening dialog above.
   await page.evaluate(()=>experiment.generate(3));await nav('filer');
   assert.equal(await page.locator('#year-section,.summary-strip').count(),0);
+  await filerControl(page,'Date of birth');
   assert(await page.locator('#dob').evaluate(el=>!!el.closest('#filer-fields .fields tr')));
-  await page.locator('#dob').fill('1981-03-04');
+  await filerInput(page,'Date of birth').fill('1981-03-04');
   assert.equal(await page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.value(experiment.getModel().root,'FilerInformation/DOB');}),'03041981');
   await page.locator('#undo').click();
   await page.locator('#apply').click();await idle();assert(await page.locator('#preview-panel').isVisible());

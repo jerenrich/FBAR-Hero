@@ -1,5 +1,6 @@
 const {chromium}=require('playwright');
 const {createServer}=require('../pdfjs/server.cjs');
+const {filerInput}=require('./filer-test-utils.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const os=require('node:os');
@@ -41,7 +42,7 @@ const path=require('node:path');
   await page.locator('#export-close').click();
 
   await page.locator('[data-section=filer]').click();
-  await page.getByLabel('First name',{exact:true}).fill('CHANGED');
+  await filerInput(page,'First name').fill('CHANGED');
   await page.locator('#compare-file').setInputFiles(file);
   await page.waitForFunction(()=>document.querySelector('#export-title').textContent==='Saved PDF comparison failed');
   assert.match(await page.locator('#export-differences').textContent(),/First name/);

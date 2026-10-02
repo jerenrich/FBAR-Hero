@@ -68,7 +68,7 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await resumed.locator('[data-section=accounts]').click();
   assert.equal(await resumed.locator('[data-register-account]').filter({hasText:'0000TEST001'}).locator('input').getAttribute('title'),'2025 maximum USD: $10,001');await resumed.close();
   await next.locator('#undo').click();await next.locator('#undo').click();await next.locator('#undo').click();
-  assert.equal(await next.getByLabel('Report year',{exact:true}).inputValue(),'2025');assert(!((await next.getByLabel('Maximum USD 1',{exact:true}).getAttribute('title'))||'').includes('2025 maximum USD'));
+  assert.equal(await next.locator('[data-filer-column=report_year] dd').textContent(),'2025');assert(!((await next.getByLabel('Maximum USD 1',{exact:true}).getAttribute('title'))||'').includes('2025 maximum USD'));
   await next.close();
   // Validation opens the modal with the staged counterpart of the required field.
   await edit(1);await input('Account number 1').fill('');await done();await nav('review');await page.locator('#check-report').click();

@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {chromium}=require('playwright');
 const {createServer}=require('../pdfjs/server.cjs');
+const {filerInput,filerControl}=require('./filer-test-utils.cjs');
 const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
 
 (async()=>{
@@ -22,10 +23,10 @@ const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
   await page.goto(origin);await page.waitForFunction(()=>window.experiment);await page.evaluate(()=>experiment.generate(3));
   await nav('accounts');await page.locator('#add-row').click();await page.locator('#close-account').click();await page.locator('#add-row').click();await page.locator('#close-account').click();
   await nav('filer');assert.equal(await page.locator('.summary-strip,#year-section').count(),0);
+  assert.equal(await page.locator('#filer-summaries input,#filer-summaries select').count(),0);
+  await filerControl(page,'Date of birth');
   assert(await page.locator('#dob').evaluate(el=>el.closest('tr')===document.querySelector('#dob-row')));
-  const heights=await page.locator('#filer-fields tr:visible').evaluateAll(rows=>rows.map(row=>row.getBoundingClientRect().height));
-  assert(heights.slice(0,15).every(height=>height<=50));
-  await page.locator('#dob').fill('1981-03-04');
+  await filerInput(page,'Date of birth').fill('1981-03-04');
   assert.equal(await page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.value(experiment.getModel().root,'FilerInformation/DOB');}),'03041981');
   await page.screenshot({path:path.join(output,'filer-941.png')});
   await nav('institutions');assert.equal(await page.locator('#institution-scroll input').count(),0);

@@ -85,24 +85,30 @@ dialog::backdrop{background:#1a2b226b;backdrop-filter:blur(3px)}dialog h2{font:2
 
 /* Compact work tables and focused shared-record editing. */
 #editor{padding-top:24px}.page-heading{margin-bottom:22px}.page-heading h1{font-size:30px;margin:8px 0 10px}.grid-hint{margin:9px 0 14px;line-height:1.6}
-/* Group filer fields into compact tables that use the workspace width. */
-#editor:has(#panel-filer:not([hidden])) .page-heading{margin-bottom:12px}
-#editor #filer-fields{margin-top:0;display:grid;grid-template-columns:minmax(0,1fr);gap:18px 24px}
-.filer-group{min-width:0}
-#editor .filer-group>h2{font:600 13px/1.5 Arial,Helvetica,sans-serif;letter-spacing:0;color:#4d6740;background:#f0f4e9;padding:8px 10px}
-#editor #panel-filer #filer-fields .fields :is(th,td){padding:4px 10px}
-#editor #panel-filer #filer-fields .fields th:first-child{width:40%}
-@media(min-width:900px){#editor #filer-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
-#editor #panel-filer details{border:0;border-radius:0;background:transparent;padding:0;margin:24px 0}
-#editor #panel-filer summary{font-size:13px;font-weight:600}
-#editor #panel-filer .fields{table-layout:fixed}
-#editor #panel-filer .fields :is(th,td){padding:7px 10px;border-bottom:1px solid #e0e7d7;line-height:1.5;overflow-wrap:anywhere}
-#editor #panel-filer .fields thead th{background:#f0f4e9;color:#667a53;font-size:11px;font-weight:500;padding:9px 10px;border:0;width:auto}
-#editor #panel-filer .fields th:first-child{width:35%}
-#editor #panel-filer .fields tbody th{color:#4d6740;font-size:12px}
-#editor #panel-filer .fields td :is(input,select,textarea){font-size:12px;padding:5px 6px;min-height:31px}
-#editor #panel-filer .fields td input[type=checkbox]{display:block;margin:5px 0;min-height:20px;padding:0}
-@media(max-width:700px){#editor #panel-filer .fields thead{display:table-header-group}#editor #panel-filer .fields th:first-child{width:40%}#editor #panel-filer .fields td :is(input,select,textarea){font-size:16px;min-height:34px}#editor #panel-filer .fields td input[type=checkbox]{min-height:20px}}
+/* Review summaries and a staged editor for filer details. */
+#editor:has(#panel-filer:not([hidden])) .page-heading{margin-bottom:18px}
+#editor #filer-fields{margin-top:0;min-width:0}
+#filer-summaries{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+.filer-group{min-width:0;padding:16px;background:#fff;border:1px solid #dce4d2;border-radius:6px}
+.filer-group-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e0e7d7;padding-bottom:9px;margin-bottom:9px}
+#editor .filer-group-heading h2{font:600 13px/1.5 Arial,Helvetica,sans-serif;letter-spacing:0;min-width:0}
+.filer-edit{font-size:12px;border:0;background:transparent;color:#55733f;padding:5px 7px;flex-shrink:0}
+.filer-group dl{margin:0}.filer-group dl>div{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);gap:14px;padding:5px 0;line-height:1.5;overflow-wrap:anywhere}
+.filer-group dt{font-size:11px;color:#607451}.filer-group dd{font-size:12px;color:#293e31;margin:0;white-space:pre-wrap}
+#filer-editor{min-width:0;border-top:2px solid #dce4d2;padding-top:18px;margin-bottom:18px}
+#filer-edit-title{font:23px/1.3 Georgia,serif;margin:0 0 18px}
+#editor #filer-editor .fields,#editor #filer-editor .fields tbody{display:block}
+#editor #filer-editor .fields tr{display:block;margin-bottom:13px}
+#editor #filer-editor .fields :is(th,td){display:block;width:100%;padding:0;border:0}
+#editor #filer-editor .fields th{font-size:12px;color:#607451;margin-bottom:5px}
+#editor #filer-editor .fields td :is(input,select,textarea){font-size:13px;padding:7px 9px;min-height:34px}
+#editor #filer-editor .fields td input[type=checkbox]{display:block;margin:8px 0;min-height:20px}
+#filer-edit-note{font-size:11px;line-height:1.6;color:#607451;margin-top:16px}
+.filer-edit-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px;padding-top:14px;border-top:1px solid #e0e7d7}.filer-edit-actions button{font-size:12px}
+#filer-fields[data-editing]{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+#filer-fields[data-editing] #filer-editor{grid-row:1}
+@media(min-width:900px){#filer-summaries{grid-template-columns:repeat(2,minmax(0,1fr))}#filer-fields[data-editing]{grid-template-columns:repeat(2,minmax(0,1fr))}#filer-fields[data-editing] #filer-summaries{grid-template-columns:minmax(0,1fr)}#filer-fields[data-editing] #filer-editor{grid-row:auto;border-top:0;border-left:2px solid #dce4d2;padding:0 0 0 20px;margin:0}}
+@media(max-width:700px){.filer-group{padding:14px}#editor #filer-editor .fields td :is(input,select,textarea){font-size:16px}.filer-group .issue-badge{display:block;margin:5px 0 0}}
 #institution-scroll,#owners-scroll{overflow:auto}.shared-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}.shared-table th{text-align:left;font-size:11px;font-weight:500;color:#667a53;background:#f0f4e9;padding:9px 10px}.shared-table td{padding:9px 10px;border-bottom:1px solid #e0e7d7;overflow-wrap:anywhere;line-height:1.5;vertical-align:middle}.shared-table th:first-child{width:26%}.shared-table th:nth-child(2){width:38%}.shared-table th:nth-child(3){width:12%}.shared-table th:nth-child(4){width:15%}.shared-table th:last-child{width:9%}.shared-table td:first-child{font-weight:600}.shared-table td:last-child{text-align:right}.shared-table .empty-register{text-align:center}#owners-scroll th:nth-child(2){width:18%}#owners-scroll th:nth-child(3){width:32%}
 .row-edit,.edit-account{font-size:19px!important;border:0;background:transparent;color:#55733f;padding:3px 7px;min-height:30px;line-height:1}.row-edit:hover,.edit-account:hover{background:#e7eedf}.row-edit[aria-invalid=true]{color:#93452d;border:1px solid #dca98e}
 .register-toolbar{margin:16px 0 12px;gap:16px}#account-register{overflow:auto}.register-table{min-width:0;width:100%;table-layout:fixed;display:table;border-collapse:collapse}.register-table thead{display:table-header-group}.register-table tbody{display:table-row-group}.register-table tr{display:table-row}.register-table th{padding:9px 8px;font-size:11px}.register-table td{padding:7px 8px;vertical-align:middle;line-height:1.5;font-size:12px}.register-table th:first-child{width:24%}.register-table th:nth-child(2){width:22%}.register-table th:nth-child(3){width:19%}.register-table th:nth-child(4){width:17%}.register-table th:nth-child(5){width:12%}.register-table th:last-child{width:6%}.register-table td:first-child{padding-left:8px}.register-table td:last-child{padding-right:4px}.register-table td :is(input,select){width:100%;min-width:0;max-width:100%;font-size:12px;padding:5px 6px;height:31px}.register-table .institution-label{gap:0}.register-table .institution-label strong{font-size:12px}.register-table .institution-label small{font-size:10px;margin-top:2px}.register-table .account-badge{white-space:normal;font-size:10px;padding:3px 5px}.register-table [aria-invalid=true]{border:1px solid #a74c35;background:#fff8f4}
