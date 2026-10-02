@@ -278,7 +278,13 @@ function control(node,meta,label,onValue,{defer=false}={}){
 }
 function fieldTable(container,entries){
  const table=document.createElement('table');table.className='fields';
- for(const [node,meta,label] of entries){const tr=table.insertRow(),th=document.createElement('th');th.textContent=label;th.scope='row';tr.append(th);const input=control(node,meta,label),td=tr.insertCell();if(meta?.column==='date_of_birth'){input.id='dob';tr.id='dob-row';}td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);}
+ if(container.closest('#panel-filer')){
+  table.setAttribute('aria-label',container.id==='filer-fields'?'Filer and filing information fields':'Third party preparer fields');
+  const head=table.createTHead().insertRow();
+  for(const label of ['Field','Value']){const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);}
+ }
+ const body=table.createTBody();
+ for(const [node,meta,label] of entries){const tr=body.insertRow(),th=document.createElement('th');th.textContent=label;th.scope='row';tr.append(th);const input=control(node,meta,label),td=tr.insertCell();if(meta?.column==='date_of_birth'){input.id='dob';tr.id='dob-row';}td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);}
  container.replaceChildren(table);
 }
 function removeRecord(node,branch){
