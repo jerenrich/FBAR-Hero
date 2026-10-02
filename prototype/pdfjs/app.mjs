@@ -201,7 +201,7 @@ function showIssues(){
   if(input){input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),button.id].filter(Boolean).join(' '));
    let section=input.closest('details');
    while(section){counts.set(section,(counts.get(section)||0)+1);section=section.parentElement.closest('details');}
-   for(const id of ['#institution-section','#owners-section','#separate-section'])if(input.closest(id))counts.set($(id),(counts.get($(id))||0)+1);
+   for(const id of ['#institution-section','#owners-section','#separate-section','.filer-group']){const section=input.closest(id);if(section)counts.set(section,(counts.get(section)||0)+1);}
   }
  });
  for(const [section,count] of counts){const badge=document.createElement('span');badge.className='issue-badge';badge.textContent=`${count} issue${count===1?'':'s'}`;(section.querySelector(':scope > summary')||section.querySelector(':scope > h2')).append(badge);}
@@ -276,9 +276,10 @@ function control(node,meta,label,onValue,{defer=false}={}){
  input.oninput=()=>{if(!defer)checkpoint();node.textContent=input.type==='checkbox'?(input.checked?'X':''):input.type==='date'?(input.value?input.value.slice(5,7)+input.value.slice(8,10)+input.value.slice(0,4):''):meta?.column==='maximum_value_usd'?currencyInput(input):input.value;onValue?.(node.textContent);describe();if(defer)return;changed();if(node.localName==='PaidPreparer'&&node.textContent==='X')$('#preparer').open=true;};
  describe();if(dropdown)input.choiceCaption=caption;return input;
 }
-function fieldTable(container,entries){
+function fieldTable(container,entries,{heading}={}){
  const table=document.createElement('table');table.className='fields';
- if(container.closest('#panel-filer')){
+ if(heading)table.setAttribute('aria-labelledby',heading.id);
+ else if(container.closest('#panel-filer')){
   table.setAttribute('aria-label',container.id==='filer-fields'?'Filer and filing information fields':'Third party preparer fields');
   const head=table.createTHead().insertRow();
   for(const label of ['Field','Value']){const th=document.createElement('th');th.scope='col';th.textContent=label;head.append(th);}
@@ -286,6 +287,24 @@ function fieldTable(container,entries){
  const body=table.createTBody();
  for(const [node,meta,label] of entries){const tr=body.insertRow(),th=document.createElement('th');th.textContent=label;th.scope='row';tr.append(th);const input=control(node,meta,label),td=tr.insertCell();if(meta?.column==='date_of_birth'){input.id='dob';tr.id='dob-row';}td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);}
  container.replaceChildren(table);
+}
+function filerTable(entries){
+ const groups=[
+  ['Identity',['filer_type','filer_type_other_description','last_name_or_organization_name','first_name','middle_name','suffix','date_of_birth']],
+  ['Tax ID and address',['tax_id','tax_id_type','foreign_id_type','foreign_id_other_description','foreign_id_number','foreign_id_issuing_country','street_address','city','state_province','postal_code','country_code']],
+  ['Filing',['filing_name','report_year','is_amendment','prior_report_bsa_id','late_filing_reason','late_filing_explanation']],
+  ['Reporting options',['financial_interest_25_or_more','financial_interest_account_count','signature_authority_25_or_more','signature_authority_account_count','third_party_preparer','filer_title']],
+ ];
+ const sections=groups.map(([title,columns],index)=>{
+  const section=document.createElement('section');section.className='filer-group';
+  const heading=document.createElement('h2');heading.id='filer-group-'+index;heading.textContent=title;section.setAttribute('aria-labelledby',heading.id);
+  const fields=document.createElement('div');section.append(heading,fields);
+  // Preserve every cataloged field, including conditional and future additions.
+  const selected=columns.map(column=>entries.find(([,meta])=>meta.column===column)).filter(Boolean);
+  if(index===groups.length-1)selected.push(...entries.filter(([,meta])=>!groups.some(([,columns])=>columns.includes(meta.column))));
+  fieldTable(fields,selected,{heading});return section;
+ });
+ $('#filer-fields').replaceChildren(...sections);
 }
 function removeRecord(node,branch){
  if(branches.includes(branch)&&!accountEdit)ledger.closeAccount();
@@ -564,7 +583,7 @@ function renderTable({preserveView=false}={}){
  const scrolls=[...document.querySelectorAll('#filer-fields,#preparer-fields,#institution-scroll,#owners-scroll,#grid-scroll')].map(n=>({left:n.scrollLeft,top:n.scrollTop}));
  inputs=new Map();sharedFieldTargets=new Map();$('#editor').hidden=false;$('#workbar').hidden=false;$('#draft').disabled=false;$('#compare-file').disabled=false;
  const filing=catalog.fields.filter(f=>f.table==='Filing');
- fieldTable($('#filer-fields'),filing.map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,labelFor(f)]));
+ filerTable(filing.map(f=>[field(model.root,f.xml_path.split('/').slice(1).join('/')),f,labelFor(f)]));
  accountTable($('#grid-scroll'));
  institutionTable($('#institution-scroll'));
  ownerTable($('#owners-scroll'));

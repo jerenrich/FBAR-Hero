@@ -85,7 +85,14 @@ dialog::backdrop{background:#1a2b226b;backdrop-filter:blur(3px)}dialog h2{font:2
 
 /* Compact work tables and focused shared-record editing. */
 #editor{padding-top:24px}.page-heading{margin-bottom:22px}.page-heading h1{font-size:30px;margin:8px 0 10px}.grid-hint{margin:9px 0 14px;line-height:1.6}
-/* Filer and preparer tables share the register's header, spacing and rules. */
+/* Group filer fields into compact tables that use the workspace width. */
+#editor:has(#panel-filer:not([hidden])) .page-heading{margin-bottom:12px}
+#editor #filer-fields{margin-top:0;display:grid;grid-template-columns:minmax(0,1fr);gap:18px 24px}
+.filer-group{min-width:0}
+#editor .filer-group>h2{font:600 13px/1.5 Arial,Helvetica,sans-serif;letter-spacing:0;color:#4d6740;background:#f0f4e9;padding:8px 10px}
+#editor #panel-filer #filer-fields .fields :is(th,td){padding:4px 10px}
+#editor #panel-filer #filer-fields .fields th:first-child{width:40%}
+@media(min-width:900px){#editor #filer-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #editor #panel-filer details{border:0;border-radius:0;background:transparent;padding:0;margin:24px 0}
 #editor #panel-filer summary{font-size:13px;font-weight:600}
 #editor #panel-filer .fields{table-layout:fixed}
