@@ -12,9 +12,9 @@
 <div class="report-card" hidden><div><strong id="report-label">New report</strong><small id="filer-label"></small></div></div>
 <nav id="section-nav" aria-label="Report sections" hidden>
 <button data-section="filer" disabled><span aria-hidden="true">○</span>Filer details</button>
+<button data-section="accounts" disabled><span aria-hidden="true">▦</span>Accounts <small id="nav-account-count">0</small></button>
 <button data-section="institutions" disabled><span aria-hidden="true">▤</span>Institutions</button>
 <button data-section="owners" disabled><span aria-hidden="true">◉</span>Owners</button>
-<button data-section="accounts" disabled><span aria-hidden="true">▦</span>Accounts <small id="nav-account-count">0</small></button>
 <button data-section="review" disabled><span aria-hidden="true">✓</span>Review <small id="nav-issue-count" hidden></small></button>
 </nav>
 <div class="file-actions" hidden><button id="new" disabled>+ New report</button><label class="file-button">Open FBAR<input id="import-file" type="file" accept="application/pdf,.pdf,application/json,.json" disabled></label></div>
@@ -49,7 +49,7 @@
 </div></div>
 <dialog id="action-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-message"><h2 id="dialog-title"></h2><p id="dialog-message"></p><div class="dialog-actions" id="dialog-actions"></div></dialog>
 <dialog id="account-dialog" aria-labelledby="account-detail-title" aria-describedby="account-edit-note"><div class="detail-heading"><h2 id="account-detail-title" tabindex="-1" autofocus>Edit account</h2><div class="account-pager" role="group" aria-label="Move between account details"><button id="previous-account" type="button" aria-label="Previous account" title="Previous account">←</button><button id="next-account" type="button" aria-label="Next account" title="Next account">→</button></div></div><div class="account-dialog-body"><div id="grid-scroll" tabindex="0" aria-label="Account fields"></div><div id="owner-details" hidden></div></div><p id="account-edit-note">Done saves your changes. Cancel discards them.</p><div class="dialog-actions"><button id="cancel-account" type="button">Cancel</button><button id="close-account" type="button" class="primary" disabled>Done</button></div></dialog>
-<dialog id="record-dialog" aria-labelledby="record-title"><form id="record-form"><h2 id="record-title"></h2><div id="record-fields"></div><p id="record-note"></p><div class="dialog-actions"><button id="record-remove" type="button">Remove</button><button id="record-cancel" type="button">Cancel</button><button type="submit" class="primary">Save changes</button></div></form></dialog>
+<dialog id="record-dialog" aria-labelledby="record-title" aria-describedby="record-note"><form id="record-form"><h2 id="record-title"></h2><div id="record-fields"></div><p id="record-note"></p><div class="dialog-actions"><button id="record-remove" type="button">Remove</button><button id="record-cancel" type="button">Cancel</button><button type="submit" class="primary">Save changes</button></div></form></dialog>
 <dialog id="import-dialog" aria-labelledby="import-title" aria-describedby="import-summary">
 <h2 id="import-title" tabindex="-1" autofocus>Use this FBAR</h2><p id="import-summary"></p>
 <div id="import-choices" class="import-choices">

@@ -498,7 +498,7 @@ function sharedTable(container,kind){
  $('#'+kind+'-results').textContent=sharedSearch[kind]?`${visible} of ${rows.length} shown`:`${rows.length} ${kind==='institution'?(rows.length===1?'institution':'institutions'):(rows.length===1?'owner':'owners')}`;
  $('#clear-'+kind+'-search').hidden=!sharedSearch[kind];
 }
-function openRecordEditor(kind,index,focusPath){
+function openRecordEditor(kind,index,focusPath,{selectRecord,focusLabel}={}){
  const rows=kind==='institution'?institutions:owners,paths=kind==='institution'?institutionColumns.map(([,path])=>path):ownerPaths;
  const isNew=index===undefined,position=isNew?rows.length:index,row=isNew?Object.fromEntries(paths.map(path=>[path,''])):rows[index];
  if(!row)return;
@@ -506,7 +506,8 @@ function openRecordEditor(kind,index,focusPath){
  const table=document.createElement('table');table.className='fields';const controls=new Map();
  const linked=isNew?[]:linkedRecords(kind,row);
  $('#record-title').textContent=`${isNew?'Add':'Edit'} ${kind}${isNew?'':' '+(index+1)}`;
- $('#record-note').textContent=linked.length?`Saving updates ${linked.length} linked account${linked.length===1?'':'s'}.`:'This record can be selected from account details.';
+ $('#record-note').textContent=selectRecord?'Add and select attaches this record to the account. Done in the account editor saves it; Cancel discards it.':linked.length?`Saving updates ${linked.length} linked account${linked.length===1?'':'s'}.`:'This record can be selected from account details.';
+ $('#record-form button[type=submit]').textContent=selectRecord?'Add and select':'Save changes';
  const issues=validationActive?data.validate(model,{detailed:true}):[];
  for(const path of paths){
   const meta=metaFor('BSAForm/'+(kind==='institution'?branches[0]+'/'+path:jointBranch+'/PrincipalJointOwner/'+path));
@@ -519,6 +520,7 @@ function openRecordEditor(kind,index,focusPath){
  $('#record-fields').replaceChildren(table);
  const close=()=>{dialog.close();$('#record-fields').replaceChildren();dialog.oncancel=null;$('#record-form').onsubmit=null;$('#record-remove').onclick=null;$('#record-cancel').onclick=null;};
  const returnFocus=()=>{
+  if(focusLabel){$('#account-dialog').querySelector(`[aria-label="${focusLabel}"]`)?.focus({preventScroll:true});return;}
   const edit=document.querySelector(`[data-edit-kind="${kind}"][data-index="${position}"]`);
   (edit?.getClientRects().length?edit:$('#'+kind+'-search')).focus({preventScroll:true});
  };
@@ -532,10 +534,16 @@ function openRecordEditor(kind,index,focusPath){
    if(kind==='institution')for(const {record} of linked)copyInstitution(record,row);
    else for(const node of sharedOwnerNodes())if(ownerLinks.get(node)===row)copyOwner(node,row);
   }
-  close();changed();renderTable({preserveView:true});setStatus(`${kind==='institution'?'Institution':'Owner'} saved.${linked.length?' Linked accounts updated.':''}`);returnFocus();
+  selectRecord?.(isNew?pending:row);
+  close();changed();renderTable({preserveView:true});setStatus(selectRecord?`${kind==='institution'?'Institution':'Owner'} selected. Choose Done to save the account.`:`${kind==='institution'?'Institution':'Owner'} saved.${linked.length?' Linked accounts updated.':''}`);returnFocus();
  };
  dialog.showModal();
  (controls.get(focusPath)||controls.values().next().value)?.focus();
+}
+function addAccountRecordButton(kind,label,selectRecord,focusLabel){
+ const button=document.createElement('button');button.type='button';button.className='account-create-record';
+ button.textContent=`+ Add new ${kind}`;button.setAttribute('aria-label',label);button.setAttribute('aria-haspopup','dialog');
+ button.onclick=()=>openRecordEditor(kind,undefined,undefined,{selectRecord,focusLabel});return button;
 }
 function changeOwnership(record,source,target){
  if(source===target)return;
@@ -557,7 +565,7 @@ function changeOwnership(record,source,target){
  if(sourceRecords.length===1)record.replaceWith(data.newRecord(model,source));else record.remove();
  revealedAccounts.add(next);
  renderTable({preserveView:true});changed();
- const guidance=sharedOwnerBranches.includes(target)?(target===authorityBranch?'Select an owner and enter your title with that owner.':'Select a principal joint owner from Owners.') : sharedOwnerBranches.includes(source)?'Owners remain available in Owners. Use Undo to restore account-specific details.':ownerNames[source]?'Previous owner details were removed. Use Undo to restore them.':target===branches[3]?'Select the consolidated filer type and complete owner details.':target===jointBranch?'Select a joint owner from Owners.':ownerNames[target]?'Complete the owner details for this category.':'';
+ const guidance=sharedOwnerBranches.includes(target)?(target===authorityBranch?'Select or add an owner and enter your title with that owner.':'Select or add a principal joint owner here.') : sharedOwnerBranches.includes(source)?'Owners remain available in Owners. Use Undo to restore account-specific details.':ownerNames[source]?'Previous owner details were removed. Use Undo to restore them.':target===branches[3]?'Select the consolidated filer type and complete owner details.':ownerNames[target]?'Complete the owner details for this category.':'';
  setStatus(`Account changed to ${categoryLabels[target]}. ${guidance}`.trim());
 }
 function accountTable(container){
@@ -581,6 +589,7 @@ function accountTable(container){
   const selected=institutions.indexOf(accountInstitution.get(record));institutionSelect.value=selected<0?'':String(selected);
   institutionSelect.onchange=()=>{checkpoint();const chosen=institutionSelect.value===''?null:institutions[Number(institutionSelect.value)];copyInstitution(record,chosen);changed();renderTable({preserveView:true});};
   const institutionCell=tr.insertCell();institutionCell.dataset.label='Institution';institutionCell.append(institutionSelect);
+  institutionCell.append(addAccountRecordButton('institution',`Add new institution for account ${i+1}`,institution=>copyInstitution(record,institution),`Institution ${i+1}`));
   for(const [,path] of institutionColumns)inputs.set(field(record,path),institutionSelect);
   for(const [label,path] of cols){
    const input=control(field(record,path),metaFor('BSAForm/'+recordBranch+'/'+path),`${label} ${i+1}`);input.dataset.path=path;
@@ -590,7 +599,7 @@ function accountTable(container){
   accountControls.set(record,{number:inputs.get(field(record,'AccntNumber')),amount:inputs.get(field(record,'MaximumAccntValue')),ownership:select});
   const ownerCell=tr.insertCell();ownerCell.dataset.label='Owner';
   if(sharedOwnerBranches.includes(recordBranch))renderOwnerSelections(ownerCell,recordBranch,record,i);
-  else ownerCell.textContent='—';
+  else ownerCell.textContent=recordBranch===branches[0]?'Filer is the owner':'See owner details below';
   const jointCell=tr.insertCell();jointCell.dataset.label='Joint owners excluding filer';
   if(recordBranch==='FinAcctOwnedJointly')jointCell.append(control(field(record,'NOofJointOwners'),metaFor('BSAForm/'+recordBranch+'/NOofJointOwners'),`Joint owners excluding filer ${i+1}`));
   else jointCell.textContent='—';
@@ -615,6 +624,7 @@ function renderOwnerSelections(container,branch,record,accountIndex){
   for(const path of ownerPaths)inputs.set(field(node,path),select);
   if(branch===jointBranch)group.append(select);
   else {const caption=document.createElement('label');caption.textContent=`Account owner ${index+1}`;caption.append(select);group.append(caption);}
+  group.append(addAccountRecordButton('owner',`Add new owner for account ${accountIndex+1} owner ${index+1}`,owner=>copyOwner(node,owner),label));
   if(branch===authorityBranch){
    const titleLabel=document.createElement('label');titleLabel.textContent='Filer title with this owner';
    titleLabel.append(control(field(node,'FilerTitle'),metaFor('BSAForm/'+branch+'/NoInterestAcctOwner/FilerTitle'),`Account ${accountIndex+1} owner ${index+1} Filer title with owner`));group.append(titleLabel);
@@ -623,7 +633,7 @@ function renderOwnerSelections(container,branch,record,accountIndex){
   container.append(group);
  }
  if(branch===authorityBranch){
-  const add=document.createElement('button');add.textContent='Add owner link';add.setAttribute('aria-label',`Add owner link to account ${accountIndex+1}`);
+  const add=document.createElement('button');add.textContent='Add another owner';add.setAttribute('aria-label',`Add owner link to account ${accountIndex+1}`);
   add.onclick=()=>{checkpoint();record.append(data.newRecord(model,branch+'/'+ownerNames[branch]));changed();renderTable({preserveView:true});};container.append(add);
  }
 }

@@ -1,6 +1,6 @@
 // Presentation only. The existing editor owns document data, validation and files.
 const $ = selector => document.querySelector(selector);
-const sections = {filer:'Filer details',institutions:'Institutions',owners:'Owners',accounts:'Accounts',review:'Review report'};
+const sections = {filer:'Filer details',accounts:'Accounts',institutions:'Institutions',owners:'Owners',review:'Review report'};
 function node(tag, text, className) {
  const el = document.createElement(tag);
  if (text !== undefined) el.textContent = text;
@@ -140,9 +140,9 @@ export function createLedger(getSnapshot, editActions) {
  $('#close-account').onclick=()=>{if(editActions.commit())closeAccount({discard:false});};
  $('#cancel-account').onclick=()=>closeAccount();
  $('#account-dialog').addEventListener('cancel',event=>{event.preventDefault();closeAccount();});
- $('#account-dialog').addEventListener('keydown',event=>{
+ for(const id of ['account-dialog','record-dialog'])$('#'+id).addEventListener('keydown',event=>{
   if(event.key!=='Tab')return;
-  const targets=[...$('#account-dialog').querySelectorAll('button,input,select,textarea,[tabindex="0"]')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length);
+  const targets=[...$('#'+id).querySelectorAll('button,input,select,textarea,[tabindex="0"]')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length);
   const first=targets[0],last=targets.at(-1),active=document.activeElement;
   if(event.shiftKey&&(active===first||!targets.includes(active))){event.preventDefault();last?.focus();}
   else if(!event.shiftKey&&(active===last||!targets.includes(active))){event.preventDefault();first?.focus();}
