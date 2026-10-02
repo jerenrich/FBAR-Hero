@@ -66,7 +66,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   const ordinary=await open();await ordinary.evaluate(()=>experiment.generate(1));
   const checked=await ordinary.evaluate(async()=>Array.from(await experiment.buildDraft()));
   assert.equal((await PDFLib.PDFDocument.load(Uint8Array.from(checked))).catalog.get(PDFLib.PDFName.of('FBARWorkState')),undefined);
-  const plainDraft=await open();await plainDraft.locator('#new').click();
+  const plainDraft=await open();await plainDraft.locator('#start-new').click();
   await plainDraft.waitForFunction(()=>!document.querySelector('#editor').hidden);
   await plainDraft.locator('[data-section=filer]').click();
   await plainDraft.locator('#filer-fields').getByLabel('Country code',{exact:true}).fill(' INVALID ');

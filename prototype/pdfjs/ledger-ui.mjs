@@ -1,14 +1,6 @@
 // Presentation only. The existing editor owns document data, validation and files.
 const $ = selector => document.querySelector(selector);
-const sections = {
- overview: ['YOUR WORKSPACE', 'Your report.', 'Prepare your details, then review your unsigned draft.'],
- filer: ['THE BASICS', 'Filer details', 'Filer details and the information for this reporting year.'],
- institutions: ['SHARED DETAILS', 'Institutions', 'One record per institution. Saving an edit updates every linked account.'],
- owners: ['SHARED DETAILS', 'Owners', 'Reusable owners for joint and signature authority accounts.'],
- accounts: ['YOUR ACCOUNT REGISTER', 'Accounts', 'Edit maximum balances here. Use the edit icon for all other account details.'],
- review: ['ONE LAST LOOK', 'Review report', 'Check your entries, then prepare the unsigned PDF for Adobe Reader.'],
-};
-const labels = {overview:'Overview',filer:'Filer details',institutions:'Institutions',owners:'Owners',accounts:'Accounts',review:'Review'};
+const sections = {filer:'Filer details',institutions:'Institutions',owners:'Owners',accounts:'Accounts',review:'Review report'};
 function node(tag, text, className) {
  const el = document.createElement(tag);
  if (text !== undefined) el.textContent = text;
@@ -17,10 +9,11 @@ function node(tag, text, className) {
 }
 
 export function createLedger(getSnapshot, editActions) {
- let section = 'overview', selected = null, latest = null, visibleIndices=[];
+ let section = 'filer', selected = null, latest = null, visibleIndices=[];
  const show = (next, {focus = false} = {}) => {
   if (!sections[next]) return;
   section = next;
+  $('.page-heading').hidden = false;
   $('#preview-panel').hidden = true;
   for (const [id, copy] of Object.entries(sections)) {
    $('#panel-' + id).hidden = id !== section;
@@ -28,12 +21,9 @@ export function createLedger(getSnapshot, editActions) {
    if (id === section) button.setAttribute('aria-current', 'page');
    else button.removeAttribute('aria-current');
    if (id === section) {
-    $('#page-kicker').textContent = copy[0];
-    $('#page-title').textContent = copy[1];
-    $('#page-description').textContent = copy[2];
+    $('#page-title').textContent = copy;
    }
   }
-  $('#current-section').textContent = labels[section];
   document.querySelectorAll('[data-section-action]').forEach(button=>button.hidden=button.dataset.sectionAction!==section);
   if (focus) { $('#page-title').tabIndex = -1; $('#page-title').focus({preventScroll:true}); window.scrollTo({top:0}); }
  };
@@ -109,7 +99,6 @@ export function createLedger(getSnapshot, editActions) {
 
   });
   $('#account-register').replaceChildren(table);
-  $('#account-results').textContent = `${snapshot.accounts.length} account${snapshot.accounts.length===1?'':'s'}`;
   if(focused){
    const next=[...table.querySelectorAll('[aria-label]')].find(el=>el.getAttribute('aria-label')===focused.label);
    (next||$('#page-title')).focus({preventScroll:true});
@@ -119,16 +108,15 @@ export function createLedger(getSnapshot, editActions) {
  const update = () => {
   const snapshot = getSnapshot(); if (!snapshot) return; latest = snapshot;
   $('#welcome').hidden = true;
+  document.querySelectorAll('.report-card,#section-nav,.file-actions').forEach(el=>el.hidden=false);
   document.querySelectorAll('[data-section]').forEach(button => button.disabled = false);
-  $('#report-monogram').textContent = snapshot.year ? snapshot.year.slice(-2) : '—';
   $('#report-label').textContent = snapshot.year ? `${snapshot.year} report` : 'New report';
   $('#filer-label').textContent = snapshot.filer || 'Filer details to complete';
   $('#nav-account-count').textContent = snapshot.accounts.length;
   $('#nav-issue-count').hidden = !snapshot.issues;
   $('#nav-issue-count').textContent = snapshot.issues;
-  $('#next-step-title').textContent = snapshot.issues ? 'A few details to finish.' : 'Ready for a closer look.';
-  $('#next-step-description').textContent = snapshot.issues ? `${snapshot.issues} missing or invalid fields across this report. Review will take you to each one.` : 'The required fields are complete. Review the details before downloading your unsigned draft.';
-  $('#review-readiness').textContent = snapshot.issues ? `${snapshot.issues} fields need attention. Check the report to see each issue and go directly to its field.` : 'Required fields are complete. Check and download runs the PDF data comparison before requesting a download.';
+  $('#review-readiness').textContent = snapshot.issues ? `${snapshot.issues} field${snapshot.issues===1?'':'s'} need${snapshot.issues===1?'s':''} attention` : 'Required fields complete';
+  $('#review-description').textContent = snapshot.issues ? 'Check fields to open the list of missing or invalid entries.' : 'Check & download verifies the PDF against your entries.';
   register(snapshot); applySelection();
  };
  const reveal = input => {
@@ -142,7 +130,7 @@ export function createLedger(getSnapshot, editActions) {
   const panel = input.closest('.workspace-panel');
   if (panel) show(panel.id.replace('panel-',''));
  };
- document.querySelectorAll('[data-section],[data-go]').forEach(button => button.addEventListener('click', () => show(button.dataset.section || button.dataset.go,{focus:true})));
+ document.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => show(button.dataset.section,{focus:true})));
  const closeAccount=({discard=true}={})=>{
   if(discard)editActions.cancel();
   const previous=selected;$('#account-dialog').close();selected=null;update();
@@ -164,15 +152,16 @@ export function createLedger(getSnapshot, editActions) {
  $('#close-preview').onclick = () => show(section,{focus:true});
  $('#start-new').onclick = () => $('#new').click();
  $('#start-import').onclick = () => $('#import-file').click();
- $('.brand').onclick = event => {event.preventDefault(); if(getSnapshot())show('overview',{focus:true});};
+ $('.brand').onclick = event => {event.preventDefault(); if(getSnapshot())show('accounts',{focus:true});};
  show(section);
  return {
   update, show, reveal, openAccount, closeAccount,
   reset() {
    $('#account-dialog').close();selected=null;visibleIndices=[];
-   show('overview');
+   show('filer');
   },
   showPreview() {
+   document.querySelectorAll('.workspace-panel,.page-heading').forEach(el=>el.hidden=true);
    $('#preview-panel').hidden=false;
    $('#preview-panel').scrollIntoView({block:'start'});
   },

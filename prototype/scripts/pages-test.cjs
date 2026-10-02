@@ -36,7 +36,7 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin);
     await page.waitForFunction(() => !document.querySelector('#new').disabled);
-    await page.locator('#new').click();
+    await page.locator('#start-new').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('New blank draft'));
     assert(await page.locator('#editor').isVisible());
     // PDF.js worker, fonts, the official template and XFA renderer must all load.

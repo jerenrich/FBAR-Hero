@@ -21,7 +21,7 @@ npm --prefix prototype install
 node prototype/pdfjs/server.cjs
 ```
 
-Open [http://127.0.0.1:3141](http://127.0.0.1:3141) in your browser. Choose **New blank draft** or **Open FBAR**.
+Open [http://127.0.0.1:3141](http://127.0.0.1:3141) in your browser. Choose **New report** or **Open FBAR**.
 
 FBAR Hero is a prototype for the tested FBAR PDF template. It creates an **unsigned draft**; review, validate, sign, and save the PDF in Adobe Reader before using the official filing workflow. The app does not submit a filing. Saved PDFs are unencrypted and contain the information you entered, so keep them in a private location.
 

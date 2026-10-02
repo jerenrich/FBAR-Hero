@@ -94,7 +94,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   assert.equal(allCategories.separate,1);assert.equal(allCategories.joint,1);assert.equal(allCategories.authority,1);
   assert.equal(allCategories.consolidated,1);assert(allCategories.size>0);assert(allCategories.matched);
   const blank=await browser.newPage();await blank.goto(`http://127.0.0.1:${server.address().port}`);
-  await blank.waitForFunction(()=>window.experiment);await blank.locator('#new').click();
+  await blank.waitForFunction(()=>window.experiment);await blank.locator('#start-new').click();
   await blank.locator('#rows tr').first().waitFor({state:'attached'});
   await blank.locator('[data-section=accounts]').click();
   assert.equal(await blank.locator('#rows tr').count(),1);

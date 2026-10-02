@@ -20,10 +20,13 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const input=label=>page.getByLabel(label,{exact:true});
   const idle=()=>page.waitForFunction(()=>!document.querySelector('#editor').inert);
   await page.goto(origin);await page.waitForFunction(()=>!document.querySelector('#start-new').disabled);
-  assert(await page.locator('#welcome').isVisible());assert(await page.locator('[data-section=accounts]').isDisabled());
+  assert(await page.locator('#welcome').isVisible());assert(await page.locator('#section-nav').isHidden());assert(await page.locator('.file-actions').isHidden());
+  assert.equal(await page.getByRole('button',{name:'New report',exact:true}).count(),1);
+  assert.equal(await page.getByRole('button',{name:'Open FBAR',exact:true}).count(),1);
   await page.screenshot({path:path.join(output,'welcome.png')});
-  await page.locator('#start-new').click();await idle();assert(await page.locator('#panel-overview').isVisible());
-  await page.locator('.next-step [data-go=review]').click();assert(await page.locator('#panel-review').isVisible());
+  await page.locator('#start-new').click();await idle();assert(await page.locator('#panel-filer').isVisible());
+  assert.equal(await page.locator('[data-section=overview],#panel-overview').count(),0);
+  await nav('review');assert(await page.locator('#panel-review').isVisible());
   await nav('accounts');assert.equal(await page.locator('.row-status.attention').count(),1);
   await page.evaluate(()=>experiment.generate(3));await nav('accounts');
   assert.equal(await page.locator('.register-table tbody tr').count(),3);
@@ -88,7 +91,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   }
   assert.equal(await reopened.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());}),snapshot);
   await reopened.locator('#continue-year').click();await reopened.waitForFunction(()=>!document.querySelector('#editor').inert);
-  assert(await reopened.locator('#panel-overview').isVisible());
+  assert(await reopened.locator('#panel-accounts').isVisible());
   assert(await reopened.locator('#synthetic-note').isVisible());
   assert.equal(await reopened.locator('#import-notes').getAttribute('open'),null);
   await reopened.locator('#import-notes summary').click();assert.match(await reopened.locator('#notices').textContent(),/Prior signing state is not copied/);
@@ -131,7 +134,8 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.equal(await page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.value(experiment.getModel().root,'FilerInformation/DOB');}),'03041981');
   await page.locator('#undo').click();
   await page.locator('#apply').click();await idle();assert(await page.locator('#preview-panel').isVisible());
-  assert(await page.locator('#pages .sheet').count());await page.locator('#close-preview').click();
+  assert(await page.locator('#pages .sheet').count());assert(await page.locator('#panel-filer').isHidden());assert(await page.locator('.page-heading').isHidden());
+  await page.locator('#close-preview').click();assert(await page.locator('#panel-filer').isVisible());
   // Preview does not save work; both leaving and replacement still protect edits.
   const beforeLeave=await page.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());});
   const leaveDialog=page.waitForEvent('dialog');const reload=page.reload({timeout:2000}).catch(()=>{});
@@ -141,20 +145,22 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   const checked=page.waitForEvent('download');await page.locator('#draft').click();
   await(await checked).saveAs(path.join(output,'SYNTHETIC-checked.pdf'));await idle();
   assert.match(await page.locator('#export-summary').textContent(),/^100% reconciled/);
-  await page.locator('#export-close').click();assert(await page.locator('#handoff').isVisible());
+  await page.locator('#export-close').click();assert(await page.locator('#handoff').isVisible());assert(await page.locator('#panel-review').isVisible());
   // Every panel fits phone, tablet and desktop in both color preferences.
   await page.evaluate(()=>experiment.generate(3));
   for(const width of [390,768,941,1440])for(const colorScheme of ['light','dark']){
    await page.setViewportSize({width,height:1000});await page.emulateMedia({colorScheme});
-   for(const section of ['overview','filer','institutions','owners','accounts','review']){
+   for(const section of ['filer','institutions','owners','accounts','review']){
     await nav(section);
     if(section==='accounts')await edit(2);
     const dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
     assert.equal(dimensions.width,dimensions.scroll,`${section} ${width} ${colorScheme}`);
     layouts.push({section,colorScheme,...dimensions});
     if(section==='accounts')await page.locator('#cancel-account').click();
+    if(section==='review'&&colorScheme==='light')await page.screenshot({path:path.join(output,`review-${width}.png`)});
    }
    await nav('accounts');await page.evaluate(()=>window.scrollTo(0,0));
+   assert(await page.locator('#report-label').isVisible());
    await page.screenshot({path:path.join(output,`accounts-${width}-${colorScheme}.png`)});
   }
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
@@ -167,6 +173,6 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   for(const id of ['new','import-file','start-new','start-import'])assert(await failedPage.locator('#'+id).isDisabled());
   await failed.close();
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({layouts,errors,external,importYearChoice:true,linkedValidation:true,incompletePdfRoundTrip:true,unusedSharedRows:true,undo:true,rollover:true,preview:true,checkedExport:true},null,2));
-  console.log('PASS: Ledger navigation, all account rows and status icons, exact field links, shared edits, incomplete PDF round trip, undo, rollover, preview, reconciled export and 48 responsive layouts.');
+  console.log('PASS: Ledger navigation, all account rows and status icons, exact field links, shared edits, incomplete PDF round trip, undo, rollover, preview, reconciled export and 40 responsive layouts.');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

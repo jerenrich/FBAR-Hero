@@ -48,7 +48,7 @@ async function assets(){
 function changed(){
  if(accountEdit){updateConditions();if(validationActive)showIssues();updateProgress();return;}
  dirty=true;draft=null;draftBlob=null;draftComparison=null;$('#handoff').hidden=true;
- $('#comparison').textContent='Table changed. Download will run a fresh comparison.';
+ $('#comparison').replaceChildren();
  $('#preview-warning').hidden=!pages.children.length;
  updateConditions();if(validationActive)showIssues();updateProgress();
 }
@@ -90,8 +90,7 @@ function commitAccountEdit(){
 }
 function updateProgress(){
  if(!model)return;
- const count=branches.reduce((sum,b)=>sum+records(model,b).filter(data.populated).length,0);
- $('#work-summary').textContent=`Report year ${value(model.root,'FilerInformation/CalendarYear')||'not set'} · ${count} account${count===1?'':'s'} · ${dirty?'Unsaved changes':lastSavedKind==='resumed'?'PDF reopened':'PDF download requested'}`;
+ $('#work-summary').textContent=dirty?'Unsaved changes':lastSavedKind==='resumed'?'PDF reopened':'PDF download requested';
  for(const [i,{branch,record}] of combinedRecords().entries()){
   const heading=$(`#owner-details .owner-card[data-account-index="${i}"] h4`);
   if(heading)heading.textContent=`Account ${i+1}: ${value(record,'FinInstName')||'New account'} — ${ownerNames[branch]==='PrincipalJointOwner'?'principal joint owner':'owners'}`;
@@ -122,7 +121,7 @@ async function saveWork(){
  if(!result.matched)throw Error('Saved PDF differs from your entries. No download was requested.');
  download(bytes,workFilename());
  lastSaved=draftSnapshot();lastSavedKind='work';dirty=false;updateProgress();
- $('#save-note').textContent='PDF download requested. Check that it finished and keep it in a private location. Open it here to continue editing. No automatic copy is stored by this app.';
+ $('#save-note').textContent='Check your browser downloads. Keep the PDF in a private location and reopen it here to continue.';
  setStatus('PDF download requested. Check your browser downloads before closing.');return true;
 }
 function workFilename(){
@@ -149,7 +148,7 @@ async function resumeWork(text){
  if(!await allowReplace())return;
  model=next;synthetic=saved.synthetic;resetSession();initializeInstitutions(saved.institutions);initializeOwners(saved.owners);initializePriorBalances(saved.priorBalances);dirty=false;lastSaved=draftSnapshot();lastSavedKind='resumed';
  $('#notices').textContent=synthetic?'Synthetic test records. Never submit these PDFs.':'';
- renderTable();$('#save-note').textContent='Saved work resumed locally. Further edits stay in memory until you save another file.';
+ renderTable();$('#save-note').textContent='Save PDF to keep further edits. There is no automatic saving.';
  setStatus('Saved work resumed, including unfinished entries. Review and continue editing.');
  return next;
 }
@@ -160,8 +159,8 @@ function resetSession(){
  history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
  $('#dob')?.removeAttribute('aria-invalid');$('#dob')?.removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;
- $('#save-note').textContent='Work stays in memory until you choose to save a file.';
- $('#comparison').textContent='The in-memory PDF used for download is re-read and checked automatically.';
+ $('#save-note').textContent='Save PDF to keep unfinished work. There is no automatic saving.';
+ $('#comparison').replaceChildren();
 }
 function updateConditions(){
  if(!model)return;
@@ -214,7 +213,7 @@ function labelFor(f){return f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|
 function setStatus(message,kind='info'){
  if(accountEdit)return;
  status.textContent=message;status.dataset.kind=kind;
- const local=$('#editor-status');local.textContent=message;local.dataset.kind=kind;local.hidden=!message;
+ const local=$('#editor-status');local.textContent=message;local.dataset.kind=kind;local.hidden=!message||(kind!=='error'&&!message.includes('Save PDF to keep unattached'));
  const notes=$('#notices').textContent.trim();
  $('#import-notes').hidden=!notes||(synthetic&&notes==='Synthetic test records. Never submit these PDFs.');$('#synthetic-note').hidden=!synthetic;
 }
@@ -391,9 +390,9 @@ function sharedTable(container,kind){
    const node=field(target,path);inputs.set(node,edit);sharedFieldTargets.set(node,{kind,index,path});
   }
  });
- if(!visible){const cell=body.insertRow().insertCell();cell.colSpan=labels.length;cell.className='empty-register';cell.textContent=rows.length?`No ${kind==='institution'?'institutions':'owners'} match your search.`:`No ${kind==='institution'?'institutions':'owners'} yet. Add one to get started.`;}
+ if(!visible){const cell=body.insertRow().insertCell();cell.colSpan=labels.length;cell.className='empty-register';cell.textContent=rows.length?`No ${kind==='institution'?'institutions':'owners'} match your search.`:kind==='institution'?'No institutions added.':'No owners added. Owners are needed for joint or signature authority accounts.';}
  container.replaceChildren(table);
- $('#'+kind+'-results').textContent=`${visible} of ${rows.length} ${kind==='institution'?'institutions':'owners'} shown`;
+ $('#'+kind+'-results').textContent=sharedSearch[kind]?`${visible} of ${rows.length} shown`:`${rows.length} ${kind==='institution'?(rows.length===1?'institution':'institutions'):(rows.length===1?'owner':'owners')}`;
  $('#clear-'+kind+'-search').hidden=!sharedSearch[kind];
 }
 function openRecordEditor(kind,index,focusPath){
@@ -571,9 +570,9 @@ function renderTable({preserveView=false}={}){
  updateConditions();if(validationActive)showIssues();updateProgress();
  if(focused&&$('#account-dialog').open)[...document.querySelectorAll('#account-dialog [aria-label]')].find(el=>el.getAttribute('aria-label')===focused)?.focus({preventScroll:true});
 }
-function showComparison(result,{generated=false}={}){
+function showComparison(result){
  const box=$('#comparison');box.replaceChildren();
- const p=document.createElement('p');p.textContent=result.matched?`${generated?'Generated':'Selected'} PDF data matches your entries${generated?' before download':''}: ${result.populatedValues} populated values and record counts match. ${reconciliationText(result)} Review, signing and submission are still separate steps.`:`${generated?'Generated':'Selected'} PDF data comparison failed: ${result.differences.length} differences. ${reconciliationText(result)} Review these before using this PDF.`;box.append(p);
+ const p=document.createElement('p');p.textContent=result.matched?`PDF data matches your entries. ${reconciliationText(result)}`:`PDF data comparison failed: ${result.differences.length} differences. ${reconciliationText(result)}`;box.append(p);
  if(!result.matched){const ul=document.createElement('ul');for(const d of result.differences.slice(0,100)){const li=document.createElement('li');li.textContent=`${d.kind}: ${describePath(d.field)}`;ul.append(li);}box.append(ul);if(result.differences.length>100){const note=document.createElement('p');note.textContent=`${result.differences.length-100} more differences are listed in the popup.`;box.append(note);}}
  return result;
 }
@@ -583,10 +582,10 @@ function reconciliationText(result){
 }
 function showExportResult(result,{stage}={}){
  const dialog=$('#export-dialog');if(dialog.open)dialog.close();
- const title={automatic:'PDF export payload reconciled',blocked:'Export blocked: data mismatch',comparison:result.matched?'Saved PDF comparison passed':'Saved PDF comparison failed'};
+ const title={automatic:'Unsigned PDF ready',blocked:'Export blocked: data mismatch',comparison:result.matched?'Saved PDF comparison passed':'Saved PDF comparison failed'};
  $('#export-title').textContent=title[stage];
  $('#export-summary').textContent=reconciliationText(result);
- const messages={automatic:'The temporary in-memory PDF was read back, parsed locally, and compared with your entries. The browser download was requested from that same PDF. Check that the download finished, then review and sign it in Adobe Reader.',blocked:'The generated PDF differs from your entries. No PDF download was requested.',comparison:'The selected PDF was read from disk and compared with your current entries. Signature validity and filing acceptance are separate checks.'};
+ const messages={automatic:'The PDF matches your entries. Check your browser downloads; the remaining steps are in Review.',blocked:'The generated PDF differs from your entries. No PDF download was requested.',comparison:'Compared with this report. Signatures and submission are not checked.'};
  $('#export-message').textContent=messages[stage];
  $('#export-differences').textContent=result.differences.map((difference,index)=>
   `${index+1}. ${difference.kind}: ${describePath(difference.field)}`).join('\n');
@@ -598,7 +597,7 @@ async function buildDraft(){
  validationActive=true;const errors=showIssues().map(issue=>issue.message);if(errors.length)throw Error(errors.slice(0,12).map(describeError).join('\n')+(errors.length>12?`\nPlus ${errors.length-12} more fields to review.`:''));
  const bytes=await fillBlankTemplate(PDFLib,blank,data.serialize(model),{restoreUnboundDob:true,restoreAllAddresses:true});
  const blob=new Blob([bytes],{type:'application/pdf'});
- const decoded=await data.readPdf(new Uint8Array(await blob.arrayBuffer()),reference),result=showComparison(data.comparePdfData(model.root,decoded),{generated:true});
+ const decoded=await data.readPdf(new Uint8Array(await blob.arrayBuffer()),reference),result=showComparison(data.comparePdfData(model.root,decoded));
  if(!result.matched){showExportResult(result,{stage:'blocked'});throw Error('PDF comparison failed. Review the differences in the popup.');}
  draftBlob=blob;draftComparison=result;
  draft=bytes;return bytes;
@@ -652,11 +651,11 @@ async function importPdf(bytes,{protect=false}={}){
  if(viewerMetadataExcluded)next.notices.push('Excluded prior PDF viewer session records.');
  if(protect&&!await allowReplace())return;
  model=next;synthetic=saved?.synthetic||false;resetSession();initializeInstitutions(saved?.institutions);initializeOwners(saved?.owners);initializePriorBalances(saved?.priorBalances);dirty=!saved;lastSaved=saved?draftSnapshot():'';lastSavedKind=saved?'resumed':'';renderTable();
- $('#comparison').textContent='Imported locally into a new unsigned draft. Review the report year and balances before exporting.';
+ $('#comparison').replaceChildren();
  const padding=next.notices.filter(n=>n.startsWith('Removed form dropdown padding')).length;
  const notes=next.notices.filter(n=>!n.startsWith('Removed form dropdown padding')).map(n=>n.startsWith('Cleared prior submission state:')?'Cleared prior signing and submission information.':n);
  $('#notices').textContent=[...new Set([...(synthetic?['Synthetic test records. Never submit these PDFs.']:[]),'Prior signing state is not copied.',...notes,...(padding?[`Normalized padding in ${padding} option values.`]:[])])].join('\n');
- $('#save-note').textContent=saved?'Saved PDF reopened locally. Further edits stay in memory until you save again.':'Imported PDF opened locally. Save a PDF to keep any edits.';
+ $('#save-note').textContent='Save PDF to keep further edits. There is no automatic saving.';
  setStatus(saved?'Saved PDF reopened, including unfinished entries. Review and continue editing.':'PDF imported. Your source file is unchanged. Choose whether to continue this year or prepare another year.');return next;
 }
 function validWorkState(saved,root){
@@ -685,10 +684,10 @@ function clearPreview(){pages.replaceChildren();doc=null;draft=null;draftBlob=nu
 async function runAction(action){
  if(busy)return;const trigger=document.activeElement;busy=true;$('header').inert=true;$('#editor').inert=true;$('#workbar').inert=true;
  setStatus('Working locally…');
- try{await action();}catch(e){setStatus(describeError(e.message),'error');if(!$('#editor').hidden)($('#issues').hidden?$('#editor-status'):$('#issues')).scrollIntoView({block:'center'});}
+ try{await action();}catch(e){setStatus(describeError(e.message),'error');if(!$('#editor').hidden){if(!$('#issues').hidden)ledger.show('review');($('#issues').hidden?$('#editor-status'):$('#issues')).scrollIntoView({block:'center'});}}
  finally{busy=false;$('header').inert=false;$('#editor').inert=false;$('#workbar').inert=false;if(document.activeElement===document.body&&trigger?.isConnected)trigger.focus({preventScroll:true});}
 }
-$('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();initializeOwners();$('#notices').textContent='';changed();renderTable();setStatus('New blank draft. Complete the filer and applicable account tables.');});
+$('#new').onclick=()=>runAction(async()=>{await assets();if(!await allowReplace())return;model=data.createModel(blankXml,catalog);synthetic=false;resetSession();initializeInstitutions();initializeOwners();$('#notices').textContent='';changed();renderTable();ledger.show('filer',{focus:true});setStatus('New blank draft. Complete the filer and applicable account tables.');});
 $('#import-file').onchange=async e=>{
  const file=e.target.files[0];e.target.value='';if(!file)return;let choice;
  await runAction(async()=>{
@@ -702,10 +701,10 @@ $('#import-file').onchange=async e=>{
   }
   if(imported)choice=await chooseImportedYear();
  });
- if(choice)ledger.show(choice==='prepare'?'accounts':'overview',{focus:true});
+ if(choice)ledger.show('accounts',{focus:true});
 };
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
-$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();$('#handoff').hidden=false;$('#handoff').scrollIntoView({block:'center'});setStatus('PDF data reconciled in memory and download requested. Open in Adobe Reader, review, validate, sign and save before your manual upload.'+(unused?' Save PDF to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save PDF to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
@@ -717,7 +716,7 @@ for(const kind of ['institution','owner']){
  $('#clear-'+kind+'-search').onclick=()=>{sharedSearch[kind]='';$('#'+kind+'-search').value='';refresh();$('#'+kind+'-search').focus();};
 }
 $('#apply').onclick=()=>runAction(async()=>{await regenerate();ledger.showPreview();});
-$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Check and download your unsigned draft when ready.');if(issues.length)$('#issues').scrollIntoView({block:'start'});};
+$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Check and download your unsigned draft when ready.');if(issues.length){ledger.show('review');$('#issues').scrollIntoView({block:'start'});}};
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);initializeOwners(saved.owners);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
  restoreRecordState(saved);previousValues=new Map(saved.previousValues||[]);
@@ -732,8 +731,8 @@ function applyRollover(year){
 function chooseImportedYear(){
  const dialog=$('#import-dialog'),year=value(model.root,'FilerInformation/CalendarYear');
  const count=branches.reduce((n,b)=>n+records(model,b).filter(data.populated).length,0);
- $('#import-summary').textContent=`Reporting year: ${year||'not set'} · ${count} account${count===1?'':'s'}. Choose how to use this report before editing.`;
- $('#continue-year-description').textContent=`Keep the ${year||'current'} reporting year and all imported balances and details.`;
+ $('#import-summary').textContent=`Reporting year: ${year||'not set'} · ${count} account${count===1?'':'s'}.`;
+ $('#continue-year-description').textContent=`Keep ${year||'the current year'} and its balances.`;
  $('#import-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';
  $('#import-year-effects').textContent=`Starting another year clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
  const clearError=()=>{$('#import-year-error').hidden=true;$('#import-year-error').textContent='';$('#import-year').removeAttribute('aria-invalid');};
