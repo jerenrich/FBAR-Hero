@@ -106,7 +106,7 @@ Section headings use direct labels, with Add actions beside them. Institution an
 
 Run `node prototype/scripts/ledger-ui-test.cjs` for the current interface: section navigation, account editing and status icons, required import year choices, exact validation links, shared details, incomplete PDF save/reopen, unused shared records, undo, rollover, preview, checked export and 48 section/viewport/color-preference combinations. Synthetic screenshots and results are in `results/ledger/`. This supersedes the old all-fields-visible layout assertions in `ui-review-test.cjs` and `usability-test.cjs`. The editor styles are scoped away from the PDF preview. A preview does not save the draft; use Save PDF before leaving the page.
 
-Run `pdf-save-test.cjs`, `currency-format-test.cjs` and `export-reconciliation-test.cjs` for saved PDF state, all reporting-category currency fields, and the exact checked download payload. The build allowlist includes `ledger.css` and `ledger-ui.mjs`; the separate design studies in `designs/` are not published with the app.
+Run `pdf-save-test.cjs`, `currency-format-test.cjs` and `export-reconciliation-test.cjs` for saved PDF state, all reporting-category currency fields, and the exact checked download payload. The build allowlist includes `ledger.css` and `ledger-ui.mjs`.
 
 Run `node prototype/scripts/currency-format-test.cjs` to check comma formatting for maximum USD values in all four account sections. The test verifies that saved data and PDF export retain plain digits.
 
