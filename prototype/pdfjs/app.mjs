@@ -147,11 +147,8 @@ async function sha256(text){return Array.from(new Uint8Array(await crypto.subtle
 function hasDuplicateRows(rows,key){return new Set(rows.map(key)).size!==rows.length;}
 async function allowReplace(){
  if(!model||!dirty)return true;
- const choice=await ask('Keep your current work?', 'Starting or opening another draft replaces the entries currently in this tab. Save your work to a file first, or discard these changes.',[['cancel','Keep editing'],['save','Save work first'],['discard','Discard and continue']]);
- if(choice==='save'){
-  if(!await saveWork())return false;
-  return await ask('Check your saved PDF before continuing', 'Make sure the PDF finished downloading and you can find it. Continue only when that copy is available; opening the next draft replaces these entries.',[['cancel','Keep current draft'],['confirm','PDF saved — continue']])==='confirm';
- }return choice==='discard';
+ const choice=await ask('Discard unsaved changes?', 'You have unsaved changes. Starting or opening another draft will discard them. To save your work first, select Cancel, then Save PDF.',[['cancel','Cancel'],['discard','Discard and Continue']]);
+ return choice==='discard';
 }
 async function resumeWork(text){
  if(text.length>10_000_000)throw Error('Choose a work file smaller than 10 MB.');

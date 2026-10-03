@@ -83,15 +83,17 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await page.locator('#new').click();await action('cancel');await idle();assert.equal(await snapshot(),edited);
   await page.locator('#import-file').setInputFiles('prototype/results/audit/adobe-signed-plain.pdf');await action('cancel');await idle();assert.equal(await snapshot(),edited);
   await page.locator('#import-file').setInputFiles(workPath);await action('cancel');await idle();assert.equal(await snapshot(),edited);
-  // Saving before replacement has a second check so a cancelled browser download cannot silently discard work.
+  // Replacement offers only Cancel and Discard and Continue, with Cancel focused by default.
   await page.locator('#new').click();
-  const replacementDownload=page.waitForEvent('download');await action('save');await replacementDownload;
-  assert.match(await page.locator('#dialog-title').textContent(),/Check your saved PDF/);
-  await action('cancel');await idle();assert.equal(await snapshot(),edited);
+  assert.equal(await page.locator('#dialog-title').textContent(),'Discard unsaved changes?');
+  assert.match(await page.locator('#dialog-message').textContent(),/You have unsaved changes/);
+  assert.deepEqual(await page.locator('#dialog-actions button').allTextContents(),['Cancel','Discard and Continue']);
+  assert.equal(await page.locator('#dialog-actions [data-action=cancel]').evaluate(n=>n===document.activeElement),true);
+  await page.keyboard.press('Escape');await idle();assert.equal(await snapshot(),edited);
   // Invalid work-file structure must never replace the existing draft.
   await page.locator('#import-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'INVALID',version:1}))});await idle();assert.equal(await snapshot(),edited);
   assert.match(await page.locator('#status').textContent(),/Unsupported work file/);
-  await page.locator('#import-file').setInputFiles(workPath);await idle();
+  await page.locator('#import-file').setInputFiles(workPath);await action('discard');await page.locator('#continue-year').click();await idle();
   assert.equal(await snapshot(),unfinished);
   await input('First name').fill(plain('TEST'));await input('Maximum USD 1').fill(plain('10001'));
   // Removal, later edits, and undo preserve the expected sequence.
