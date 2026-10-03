@@ -18,7 +18,7 @@ async function filerControl(page,label){
 
 // General workflow tests commit each field action. Staging itself is tested separately.
 function filerInput(page,label){
- const mutate=async(method,arg)=>{const input=await filerControl(page,label);await input[method](arg);if(await page.locator('#filer-done').isEnabled())await page.locator('#filer-done').click();};
+ const mutate=async(method,arg)=>{const input=await filerControl(page,label);await input[method](arg);await page.locator(await page.locator('#filer-done').isEnabled()?'#filer-done':'#filer-cancel').click();};
  return {
   fill:value=>mutate('fill',value),selectOption:value=>mutate('selectOption',value),check:()=>mutate('check'),uncheck:()=>mutate('uncheck'),
   isVisible:async()=>{const input=await filerControl(page,label);return input.isVisible();},

@@ -131,7 +131,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await page.evaluate(()=>experiment.generate(3));await nav('filer');
   assert.equal(await page.locator('#year-section,.summary-strip').count(),0);
   await filerControl(page,'Date of birth');
-  assert(await page.locator('#dob').evaluate(el=>!!el.closest('#filer-fields .fields tr')));
+  assert(await page.locator('#dob').evaluate(el=>!!el.closest('#filer-editor .fields tr')));
   await filerInput(page,'Date of birth').fill('1981-03-04');
   assert.equal(await page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.value(experiment.getModel().root,'FilerInformation/DOB');}),'03041981');
   await page.locator('#undo').click();

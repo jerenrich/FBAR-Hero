@@ -23,15 +23,22 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.equal(await page.locator('[data-filer-column=date_of_birth] dd').textContent(),'01/02/1980');
   await page.screenshot({path:path.join(output,'summaries-1440.png')});
   const before=await snapshot();await edit('Identity');assert(await page.locator('#filer-done').isDisabled());
+  assert(await page.getByRole('dialog',{name:'Edit Identity',exact:true}).isVisible());
+  assert(await page.locator('#filer-editor').evaluate(el=>el.matches(':modal')&&!el.closest('#panel-filer')));
+  assert(await page.locator('#filer-edit-title').evaluate(el=>el===document.activeElement));
   for(const id of ['save-work','apply','draft','undo','new','import-file'])assert(await page.locator('#'+id).isDisabled());
   await input('First name').fill(plain('PENDING'));await input('Last name or organization name').fill(plain('PENDING LAST'));
   assert.equal(await snapshot(),before);assert.match(await page.locator('#filer-summary-0').textContent(),/TEST/);assert(await page.locator('#filer-done').isEnabled());
   await page.locator('#filer-cancel').click();assert.equal(await snapshot(),before);assert(await page.locator('#filer-editor').isHidden());
   assert(await page.getByRole('button',{name:'Edit Identity',exact:true}).evaluate(el=>el===document.activeElement));
   await edit('Identity');await input('First name').fill(plain('ESCAPE'));await page.keyboard.press('Escape');assert.equal(await snapshot(),before);
-  await edit('Identity');await input('First name').fill(plain('DISCARDED'));await edit('Filing');assert.equal(await snapshot(),before);await page.locator('#filer-cancel').click();
-  await edit('Identity');await input('First name').fill(plain('LEAVING'));await page.locator('[data-section=accounts]').click();assert.equal(await snapshot(),before);assert(await page.locator('#filer-editor').isHidden());
-  await page.locator('[data-section=filer]').click();await edit('Identity');await input('First name').fill(plain('UPDATED'));await input('Last name or organization name').fill(plain('UPDATED LAST'));
+  // The modal blocks background navigation and group changes while edits are staged.
+  await edit('Identity');await input('First name').fill(plain('PENDING'));
+  await page.locator('[data-section=accounts]').evaluate(el=>el.focus());assert(await page.evaluate(()=>!!document.activeElement.closest('#filer-editor')));
+  const background=await page.locator('[data-section=accounts]').boundingBox();await page.mouse.click(background.x+background.width/2,background.y+background.height/2);
+  assert(await page.locator('#filer-editor').isVisible());assert(await page.locator('#panel-filer').isVisible());assert.equal(await snapshot(),before);
+  await page.locator('#filer-cancel').click();await edit('Filing');assert.equal(await snapshot(),before);await page.locator('#filer-cancel').click();
+  await edit('Identity');await input('First name').fill(plain('UPDATED'));await input('Last name or organization name').fill(plain('UPDATED LAST'));
   await page.screenshot({path:path.join(output,'editor-1440.png')});await page.locator('#filer-done').click();
   assert.notEqual(await snapshot(),before);assert.match(await page.locator('#filer-summary-0').textContent(),/UPDATED LAST/);assert(await page.locator('#save-work').isEnabled());
   await page.locator('#undo').click();assert.equal(await snapshot(),before);assert(await page.locator('#undo').isDisabled());
@@ -46,16 +53,27 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await page.locator('#issue-list button').filter({hasText:'First name'}).first().click();
   assert(await page.locator('#panel-filer').isVisible());assert(await input('First name').evaluate(el=>el===document.activeElement));assert.equal(await input('First name').getAttribute('aria-invalid'),'true');
   await input('First name').fill(plain('TEST'));assert.equal(await input('First name').getAttribute('aria-invalid'),null);await page.locator('#filer-done').click();
+  await edit('Reporting options');await input('Third party preparer').check();await page.locator('#filer-done').click();
   for(const width of [390,768,941,1440]){
    await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
    await page.screenshot({path:path.join(output,`summaries-${width}.png`)});
-   for(const group of ['Identity','Tax ID and address','Filing','Reporting options']){
+   for(const group of ['Identity','Tax ID and address','Filing','Reporting options','Third party preparer']){
+    const summaries=await page.locator('#filer-summaries').boundingBox();
     await edit(group);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
     assert(await page.locator('#filer-editor').evaluate(el=>el.scrollWidth<=el.clientWidth&&el.getBoundingClientRect().right<=innerWidth));
+    const modalSummaries=await page.locator('#filer-summaries').boundingBox();
+    for(const dimension of ['x','width','height'])assert.equal(modalSummaries[dimension],summaries[dimension]);
+    for(const key of ['Tab','Shift+Tab'])for(let i=0;i<25;i++){await page.keyboard.press(key);assert(await page.evaluate(()=>!!document.activeElement.closest('#filer-editor')));}
     if(group==='Identity')await page.screenshot({path:path.join(output,`editor-${width}.png`)});
     await page.keyboard.press('Escape');
+    assert(await page.locator('#filer-editor').isHidden());assert(await page.getByRole('button',{name:'Edit '+group,exact:true}).evaluate(el=>el===document.activeElement));
    }
   }
+  // On short screens, fields scroll while the dialog actions remain accessible.
+  await page.setViewportSize({width:390,height:600});await edit('Third party preparer');
+  assert(await page.locator('#filer-cancel').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
+  await page.locator('#filer-edit-fields').evaluate(el=>el.scrollTop=el.scrollHeight);await page.screenshot({path:path.join(output,'preparer-dialog-390.png')});await page.keyboard.press('Escape');
+  await page.locator('#undo').click();
   // Staged edits protect a previously saved report when closing or reloading.
   const saved=page.waitForEvent('download');await page.locator('#save-work').click();await (await saved).saveAs(path.join(output,'SYNTHETIC-saved.pdf'));
   await page.waitForFunction(()=>!document.querySelector('#editor').inert);
@@ -63,7 +81,7 @@ const plain=value=>{assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.equal(await beforeUnload(),false);await edit('Identity');await input('First name').fill(plain('UNSAVED'));assert.equal(await beforeUnload(),true);
   await page.locator('#filer-cancel').click();assert.equal(await beforeUnload(),false);
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-  fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({readOnlySummaries:true,stagedEdits:true,cancelAndEscape:true,oneUndoStep:true,conditionalPreparer:true,validationNavigation:true,responsive:true,errors,external},null,2));
-  console.log('PASS: review summaries, staged edits, Cancel and Escape, navigation discard, single-step Undo, preparer conditions, validation links and responsive editors.');
+  fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({readOnlySummaries:true,modalDialogs:true,stagedEdits:true,cancelAndEscape:true,backgroundBlocked:true,keyboardFocus:true,oneUndoStep:true,conditionalPreparer:true,validationNavigation:true,responsive:true,errors,external},null,2));
+  console.log('PASS: review summaries, modal dialogs, staged edits, Cancel and Escape, background blocking, focus trapping and return, single-step Undo, preparer conditions, validation links and responsive dialogs.');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

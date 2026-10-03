@@ -162,7 +162,7 @@ async function resumeWork(text){
  return next;
 }
 function resetSession(){
- accountEdit=null;filerEdit=null;previousValues=new Map();ledger.reset();
+ accountEdit=null;filerEdit=null;$('#filer-editor').close();previousValues=new Map();ledger.reset();
  for(const kind of ['institution','owner']){sharedSearch[kind]='';$('#'+kind+'-search').value='';$('#clear-'+kind+'-search').hidden=true;}
  $('#import-notes').open=false;
  history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
@@ -323,7 +323,7 @@ function filerTable(){
   const section=document.createElement('section');section.className='filer-group';section.id='filer-summary-'+index;section.dataset.filerGroup=String(index);
   const heading=document.createElement('h2');heading.id='filer-group-'+index;heading.textContent=title;section.setAttribute('aria-label',title+' summary');
   const header=document.createElement('div');header.className='filer-group-heading';
-  const edit=document.createElement('button');edit.textContent='Edit';edit.className='filer-edit';edit.dataset.editFiler=String(index);edit.setAttribute('aria-label','Edit '+title);edit.setAttribute('aria-controls','filer-editor');edit.setAttribute('aria-expanded',String(filerEdit?.group===index));edit.disabled=filerEdit?.group===index;edit.onclick=()=>openFilerEditor(index);
+  const edit=document.createElement('button');edit.textContent='Edit';edit.className='filer-edit';edit.dataset.editFiler=String(index);edit.setAttribute('aria-label','Edit '+title);edit.setAttribute('aria-controls','filer-editor');edit.setAttribute('aria-haspopup','dialog');edit.disabled=filerEdit?.group===index;edit.onclick=()=>openFilerEditor(index);
   header.append(heading,edit);section.append(header);
   const list=document.createElement('dl');
   for(const [node,target] of filerEntries(index)){
@@ -336,8 +336,6 @@ function filerTable(){
  // Keep the preparer section addressable for existing validation/navigation.
  const preparer=document.createElement('div');preparer.id='preparer';preparer.append(sections.pop());
  $('#filer-summaries').replaceChildren(...sections,preparer);
- $('#filer-fields').toggleAttribute('data-editing',!!filerEdit);
- $('#filer-editor').hidden=!filerEdit;
  if(filerEdit)renderFilerEditor();else $('#filer-edit-fields').replaceChildren();
 }
 function renderFilerEditor(){
@@ -366,24 +364,26 @@ function openFilerEditor(group,path){
  // Choosing another group discards the previous group's staged values.
  if(filerEdit?.group!==group)filerEdit={group,root:model.root.cloneNode(true)};
  filerTable();if(validationActive)showIssues();updateProgress();
+ const dialog=$('#filer-editor');if(!dialog.open)dialog.showModal();
+ $('#filer-edit-fields').scrollTop=0;
  const target=path?[...filerFieldTargets].find(([,target])=>target.path===path):null;
  const input=target&&inputs.get(target[0]);
  if(input){input.closest('tr').hidden=false;input.scrollIntoView({block:'center'});input.focus({preventScroll:true});}
- else{$('#filer-edit-title').focus({preventScroll:true});$('#filer-editor').scrollIntoView({block:'nearest'});}
+ else $('#filer-edit-title').focus({preventScroll:true});
 }
 function closeFilerEditor({save=false,focus=true}={}){
  if(!filerEdit)return;
  const group=filerEdit.group,entries=filerEntries(group);
  const edited=pendingFilerChanges();
  if(save&&edited){checkpoint();for(const [node,target] of entries)node.textContent=value(filerEdit.root,target.path);}
- filerEdit=null;
+ filerEdit=null;$('#filer-editor').close();
  if(save&&edited){changed();renderTable({preserveView:true});setStatus('Filer details saved.');}
  else{filerTable();updateConditions();if(validationActive)showIssues();updateProgress();}
  if(focus)document.querySelector(`[data-edit-filer="${group}"]`)?.focus({preventScroll:true});
 }
 $('#filer-cancel').onclick=()=>closeFilerEditor();
 $('#filer-done').onclick=()=>closeFilerEditor({save:true});
-$('#panel-filer').addEventListener('keydown',event=>{if(filerEdit&&event.key==='Escape'){event.preventDefault();closeFilerEditor();}});
+$('#filer-editor').addEventListener('cancel',event=>{event.preventDefault();closeFilerEditor();});
 function removeRecord(node,branch){
  if(branches.includes(branch)&&!accountEdit)ledger.closeAccount();
  checkpoint();
