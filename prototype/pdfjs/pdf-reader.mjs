@@ -14,7 +14,7 @@ export function readPackets(bytes){
       if(error)reject(error);else resolve(packets);
     };
     const timer=setTimeout(()=>finish(Error('PDF processing exceeded the time limit. Your current draft is unchanged.'),null,true),timeoutMs);
-    current.onmessage=({data})=>data.error?finish(Error(data.error)):finish(null,data.packets);
+    current.onmessage=({data})=>data.error?finish(Error(data.error),null,data.recycle===true):finish(null,data.packets);
     current.onerror=event=>{event.preventDefault();finish(Error('The local PDF reader could not process this file.'),null,true);};
     current.onmessageerror=()=>finish(Error('The local PDF reader returned invalid data.'),null,true);
     current.postMessage(copy,[copy.buffer]);

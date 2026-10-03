@@ -1,11 +1,15 @@
 // Local data-only import. Imported templates, scripts and saved signing state are never executed or copied.
 import {readPackets} from './pdf-reader.mjs';
+import {isValidDob} from '../xfa-packet-writer.mjs';
 export const XFA='http://www.xfa.org/schema/xfa-data/1.0/';
 export const FBAR='http://www.fincen.gov/bsa/ffbar/2011-06-01';
 const DD='http://ns.adobe.com/data-description/';
 export const branches=['FinAcctOwnedSeparately','FinAcctOwnedJointly','NoFinInterestFinAcctOwned','ConsolidatedAcct'];
 export const ownerNames={FinAcctOwnedJointly:'PrincipalJointOwner',NoFinInterestFinAcctOwned:'NoInterestAcctOwner',ConsolidatedAcct:'ConsolidateAcctOwner'};
 const repeated=new Set([...branches,'NoInterestAcctOwner','ConsolidateAcctOwner']);
+export const MAX_RECORDS=1000;
+export function recordCount(node){return [node,...node.querySelectorAll('*')].filter(n=>repeated.has(n.localName)).length;}
+const recordLimitMessage=`This prototype supports at most ${MAX_RECORDS} account and repeated owner records per draft.`;
 export const child=(n,k)=>[...n.children].find(x=>x.localName===k);
 export const field=(n,path)=>path.split('/').reduce((x,k)=>x&&child(x,k),n);
 export const value=(n,path)=>field(n,path)?.textContent||'';
@@ -60,9 +64,7 @@ export function serialize(model){return new XMLSerializer().serializeToString(mo
 export function importData(model,source,{preserveValues=false}={}){
  // A tiny repeated element expands to a full schema record and dozens of UI
  // controls. Check the aggregate before cloning any records, including owners.
- let recordCount=0;
- for(const node of source.querySelectorAll('*'))if(repeated.has(node.localName)&&++recordCount>1000)
-  throw Error('This prototype supports at most 1000 account and repeated owner records per draft.');
+ if(recordCount(source)>MAX_RECORDS)throw Error(recordLimitMessage);
  const notices=[];
  function merge(dst,src,path){
   if(!dst.children.length){
@@ -95,13 +97,16 @@ export function importData(model,source,{preserveValues=false}={}){
   for(const t of templates){
    const incoming=groups.get(key(t))||[];
    if(!repeated.has(t.localName)&&incoming.length>1)throw Error(`Duplicate single field at ${path}/${t.localName}`);
-   if(incoming.length>9999)throw Error('Too many repeated records.');
+   if(incoming.length>MAX_RECORDS)throw Error(recordLimitMessage);
    if(incoming.length){
     for(const s of incoming){const copy=emptyCopy(t);merge(copy,s,path+'/'+t.localName);t.before(copy);}t.remove();
    }
   }
  }
  merge(model.root,source,'BSAForm');
+ // Sparse input retains blank schema records, including repeated owner records.
+ // Apply the same limit to the expanded model that the editor and save use.
+ if(recordCount(model.root)>MAX_RECORDS)throw Error(recordLimitMessage);
  const version=value(model.root,'EFileSubmissionInformation/VersionNumber');
  if(version!=='1.0.2')throw Error('Unsupported form data version.');
  if(value(model.root,'EFileSubmissionInformation/FilingType')!=='FBARX')throw Error('Unsupported filing type.');
@@ -203,9 +208,36 @@ export function validate(model,{detailed=false}={}){
  }
  walk(model.root,'BSAForm');
  const r=model.root,req=(n,path,label=path)=>{if(!value(n,path).trim())add(label,'required',field(n,path));};
+ if(recordCount(r)>MAX_RECORDS)add('Accounts',recordLimitMessage,r);
+ const addressRules=model.catalog.addressRules;
+ function address(n,label,{required=false,institution=false}={}){
+  const a=child(n,'Address');if(!a||!addressRules)return;
+  const country=value(a,'Country'),state=value(a,'State'),postal=value(a,'ZIP');
+  // Empty schema placeholders carry no selected country or optional state.
+  if(!required&&!populated(a))return;
+  const countryLabel=addressRules.countries.find(pair=>pair[1]===country)?.[0];
+  if(country&&!countryLabel)add(label+' country','select a listed country code',child(a,'Country'));
+  const states=countryLabel?addressRules.states[countryLabel]||[]:[];
+  if(state&&!states.some(pair=>pair[1]===state))add(label+' state/province','select a listed state/province for the country',child(a,'State'));
+  if(required&&states.length&&!state)req(a,'State',label+' state/province');
+  if(required&&addressRules.postalRequiredCountries.includes(country))req(a,'ZIP',label+' ZIP/postal code');
+  if(postal){
+   const patterns=addressRules.postalPatterns;
+   // Institution fields use the official foreign postal pattern for every
+   // country. Filer, owner and preparer fields use FFBAR.validateZIP instead.
+   if(country==='US'&&!institution){
+    if(!new RegExp(patterns.us).test(postal)||new RegExp(patterns.usInvalid).test(postal))add(label+' ZIP/postal code','enter a valid five or nine digit US ZIP code',child(a,'ZIP'));
+   }else if(!new RegExp(institution?patterns.institution:patterns.foreign).test(postal))add(label+' ZIP/postal code','enter up to nine letters and digits without spaces',child(a,'ZIP'));
+  }
+ }
  for(const p of ['EFileSubmissionInformation/FilingName','FilerInformation/CalendarYear','FilerInformation/TypeOfFiler','FilerInformation/LastNameOrNameOfOrg','FilerInformation/Address/Address','FilerInformation/Address/City','FilerInformation/Address/Country','FilerInformation/FIInterestIn25OrMore','FilerInformation/SigAuth25OrMore'])req(r,p);
  if(!/^\d{4}$/.test(value(r,'FilerInformation/CalendarYear')))add('Report year','must be four digits');
  if(value(r,'FilerInformation/TypeOfFiler')==='A')for(const p of ['FilerInformation/FirstName','FilerInformation/DOB'])req(r,p);
+ const dob=value(r,'FilerInformation/DOB');
+ if(dob&&!isValidDob(dob))add('FilerInformation/DOB','enter a valid date from 1900 onward');
+ address(child(r,'FilerInformation'),'Filer',{required:true});
+ const issue=value(r,'FilerInformation/ForeignId/IssueCountry');
+ if(issue&&addressRules&&!addressRules.countries.some(pair=>pair[1]===issue))add('FilerInformation/ForeignId/IssueCountry','select a listed country code');
  if(!value(r,'FilerInformation/TIN'))for(const p of ['FilerInformation/ForeignId/ForeignIdType','FilerInformation/ForeignId/IdNumber','FilerInformation/ForeignId/IssueCountry'])req(r,p);
  else if(!/^\d{9}$/.test(value(r,'FilerInformation/TIN')))add('Tax ID','must be nine digits');
  else req(r,'FilerInformation/TINTYPE');
@@ -218,6 +250,7 @@ export function validate(model,{detailed=false}={}){
   if(!populated(a))continue;
   const label=`${branch} ${i+1}`;
   for(const p of ['FinInstName','AccntNumber','AccountType','Address/Country'])req(a,p,label+' '+p);
+  address(a,label,{institution:true});
   const max=value(a,'MaximumAccntValue'),unknown=value(a,'MaximumAccntUnkn')==='X';
   if(unknown&&max)add(label,'clear the maximum value when unknown is selected',field(a,'MaximumAccntValue'));
   if(!unknown&&!/^\d{1,15}$/.test(max))add(label,'maximum value must be whole US dollars with at most 15 digits',field(a,'MaximumAccntValue'));
@@ -227,6 +260,7 @@ export function validate(model,{detailed=false}={}){
   if(owner)for(const o of [...a.children].filter(n=>n.localName===owner)){
    req(o,owner==='ConsolidateAcctOwner'?'CorporateName':'LastName',label+' owner name');
    req(o,'Address/Country',label+' owner country');
+   address(o,label+' owner');
    req(o,owner==='ConsolidateAcctOwner'?'TINTYPE':'TINTYPEU',label+' owner ID type');
    if(value(o,'TINTYPEU')!=='D')req(o,'TIN',label+' owner ID');
   }
@@ -234,6 +268,10 @@ export function validate(model,{detailed=false}={}){
  const hasAccounts=branches.some(b=>records(model,b).some(populated));
  if(!hasAccounts&&value(r,'FilerInformation/FIInterestIn25OrMore')!=='A'&&value(r,'FilerInformation/SigAuth25OrMore')!=='A')add('Accounts','enter at least one applicable account');
  if(records(model,'ConsolidatedAcct').some(populated)&&value(r,'FilerInformation/TypeOfFiler')!=='D')add('Consolidated accounts','select the consolidated filer type');
- if(value(r,'FilerInformation/PaidPreparer')==='X')for(const p of ['LastName','FirstName','TIN','TINTYPE','TelephoneNumber','Address/Address','Address/City','Address/Country'])req(child(r,'PaidPreparerInformation'),p,'Preparer '+p);
+ if(value(r,'FilerInformation/PaidPreparer')==='X'){
+  const preparer=child(r,'PaidPreparerInformation');
+  for(const p of ['LastName','FirstName','TIN','TINTYPE','TelephoneNumber','Address/Address','Address/City','Address/Country'])req(preparer,p,'Preparer '+p);
+  address(preparer,'Preparer',{required:true});
+ }
  return errors;
 }

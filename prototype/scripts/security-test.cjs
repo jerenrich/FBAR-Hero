@@ -75,7 +75,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   await resumed.close();
   const blank=fs.readFileSync('prototype/fixtures/official-blank.pdf');
   const writer=await import('../xfa-packet-writer.mjs');
-  async function malformed(kind){
+  async function malformed(kind,iteration=0){
    const {pdf,packets}=await writer.inspectXfa(PDFLib,blank);
    if(kind==='packet')pdf.context.assign(packets.datasets.ref,pdf.context.flateStream(Buffer.alloc(17*1024*1024,65)));
    if(kind==='objects'||kind==='aggregate'){
@@ -85,30 +85,103 @@ const {createServer}=require('../pdfjs/server.cjs');
      pdf.context.register(pdf.context.flateStream(contents,{Type:'ObjStm',N:1,First:prefix.length}));
     }
    }
+   if(['duplicate offsets','overlapping offsets','invalid offsets','leading gap','object count','object depth','parsed data','long number'].includes(kind)){
+    let header='1000 0 ',body='(SYNTHETIC)',count=1;
+    if(kind==='duplicate offsets'){header='1000 0 1001 0 ';count=2;}
+    if(kind==='overlapping offsets'){header='1000 0 1001 4 ';body='(SYNTHETIC) (SYNTHETIC)';count=2;}
+    if(kind==='invalid offsets')header='1000 1000 ';
+    if(kind==='leading gap'){header='1000 1 ';body=' (SYNTHETIC)';}
+    if(kind==='object count')body='['+'0 '.repeat(100_001)+']';
+    if(kind==='object depth')body='['.repeat(65)+'0'+']'.repeat(65);
+    if(kind==='long number')body='1'.repeat(1000);
+    if(kind==='parsed data'){
+     // Five distinct, valid spans exceed the parsed text budget while every
+     // individual string and decoded stream stays within its own size limit.
+     const object='('+ 'A'.repeat(1024*1024)+') ',objects=Array(5).fill(object);
+     header=objects.map((value,index)=>`${1000+index} ${index*object.length} `).join('');
+     body=objects.join('');count=objects.length;
+    }
+    pdf.context.register(pdf.context.flateStream(Buffer.from(header+body),{Type:'ObjStm',N:count,First:header.length}));
+   }
+   if(kind==='cache'){
+    const dict=PDFLib.PDFDict.withContext(pdf.context);
+    for(let index=0;index<100;index++)dict.set(PDFLib.PDFName.of(`SyntheticCache${iteration}Name${index}`),PDFLib.PDFNumber.of(index));
+    pdf.context.register(dict);
+   }
    if(kind==='packets'){
     const xfa=pdf.catalog.lookup(PDFLib.PDFName.of('AcroForm')).lookup(PDFLib.PDFName.of('XFA'));
     for(let i=0;i<33;i++){xfa.push(PDFLib.PDFString.of('Synthetic'+i));xfa.push(packets.datasets.ref);}
    }
    return Buffer.from(await pdf.save({useObjectStreams:false,updateFieldAppearances:false}));
   }
-  for(const kind of ['packet','objects','aggregate','packets']){
+  for(const kind of ['packet','objects','aggregate','packets','duplicate offsets','overlapping offsets','invalid offsets','object count','object depth','parsed data','long number']){
    const bytes=await malformed(kind);
    assert(bytes.length<25_000_000);
    const result=await page.evaluate(async bytes=>{
-    let ticks=0;const timer=setInterval(()=>ticks++,10);
+    const start=performance.now();let ticks=0;const timer=setInterval(()=>ticks++,10);
     try{await experiment.importPdf(new Uint8Array(bytes));return {accepted:true};}
-    catch(error){return {error:error.message,ticks};}finally{clearInterval(timer);}
+    catch(error){return {error:error.message,ticks,elapsed:performance.now()-start};}finally{clearInterval(timer);}
    },Array.from(bytes));
    assert.match(result.error,/size limit|invalid object|Too many XFA packets/i,kind);
-   if(kind!=='packets')assert(result.ticks>0,'Editor remains responsive during '+kind);
+   assert(result.ticks>0||result.elapsed<100,'Editor remains responsive during '+kind);
    assert.equal(await page.evaluate(()=>new XMLSerializer().serializeToString(experiment.getModel().document)),before);
   }
+  const leadingGap=await malformed('leading gap');
+  const positive=await page.evaluate(async bytes=>{
+   const {readPackets}=await import('/pdfjs/pdf-reader.mjs');
+   return Object.keys(await readPackets(new Uint8Array(bytes)));
+  },Array.from(leadingGap));
+  assert(positive.includes('datasets')&&positive.includes('template'),'Valid leading object stream whitespace is accepted');
   // Recovery uses the existing reader worker, including when the browser is offline.
   await context.setOffline(true);
   await page.evaluate(()=>experiment.buildDraft());
   assert.equal(await page.evaluate(()=>document.querySelector('#rows').children.length),3);
   assert.deepEqual(external,[]);await context.close();
-  console.log('PASS: XML complexity and record limits, incomplete work resume, packet and object stream decompression limits, aggregate budget, packet count, responsive editor, draft preservation and offline recovery.');
+  console.log('PASS: XML complexity and record limits, incomplete work resume, decompression and parsed object budgets, object stream offsets, nesting and number limits, packet count, responsive editor, draft preservation and offline recovery.');
+
+  // A small routed limit proves the lifetime guard across distinct imports;
+  // no large allocation or private PDF is needed to exercise worker recycling.
+  const workerSource=fs.readFileSync(path.join(__dirname,'../pdfjs/pdf-reader-worker.js'),'utf8');
+  const loweredSource=workerSource.replace('poolObjectLimit=100_000','poolObjectLimit=2000');
+  assert.notEqual(loweredSource,workerSource);
+  const pooled=await browser.newContext();
+  await pooled.route('**/pdfjs/pdf-reader-worker.js',route=>route.fulfill({contentType:'text/javascript',body:loweredSource}));
+  const pooledPage=await pooled.newPage();await pooledPage.goto(origin);await pooledPage.waitForFunction(()=>window.experiment);
+  const cacheDocuments=[];
+  for(let index=0;index<20;index++)cacheDocuments.push(Array.from(await malformed('cache',index)));
+  const pooledResult=await pooledPage.evaluate(async({blank,documents})=>{
+   const worker=new Worker('/pdfjs/pdf-reader-worker.js');
+   const send=bytes=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(Error('Synthetic cache test timed out')),5000);
+    worker.onmessage=({data})=>{clearTimeout(timer);resolve(data);};
+    worker.onerror=()=>{clearTimeout(timer);reject(Error('Synthetic cache worker failed'));};
+    worker.postMessage(new Uint8Array(bytes));
+   });
+   try{
+    const initial=await send(blank);if(initial.error)return {initialError:initial.error};
+    let accepted=0;
+    for(const bytes of documents){
+     const result=await send(bytes);
+     if(result.error)return {accepted,error:result.error,recycle:result.recycle};
+     accepted++;
+    }
+    return {accepted};
+   }finally{worker.terminate();}
+  },{blank:Array.from(blank),documents:cacheDocuments});
+  assert.equal(pooledResult.initialError,undefined);assert(pooledResult.accepted>0);
+  assert.match(pooledResult.error,/parser cache.*size limit/i);assert.equal(pooledResult.recycle,true);
+  const readerCacheError=await pooledPage.evaluate(async documents=>{
+   const {readPackets}=await import('/pdfjs/pdf-reader.mjs');
+   for(const bytes of documents){try{await readPackets(new Uint8Array(bytes));}catch(error){return error.message;}}
+   return '';
+  },cacheDocuments);
+  assert.match(readerCacheError,/parser cache.*size limit/i);
+  await pooled.unroute('**/pdfjs/pdf-reader-worker.js');
+  const recovered=await pooledPage.evaluate(async bytes=>{
+   const {readPackets}=await import('/pdfjs/pdf-reader.mjs');return Object.keys(await readPackets(new Uint8Array(bytes)));
+  },Array.from(await malformed('cache',100)));
+  assert(recovered.includes('datasets')&&recovered.includes('template'));await pooled.close();
+  console.log('PASS: valid leading object stream gap, bounded lifetime intern pools, recycle signal and reader recovery.');
 
   // Simulate a parser that never returns; the real watchdog must terminate it.
   const stalled=await browser.newContext();

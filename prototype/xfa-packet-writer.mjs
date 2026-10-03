@@ -105,6 +105,41 @@ export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreU
   return output;
 }
 
+// Read only literal validation data from the fingerprinted government template.
+// Both the editor and saved form state use these lists without executing scripts.
+export function addressRules(templateXml) {
+  const template=new DOMParser().parseFromString(templateXml,'application/xml');
+  if(template.getElementsByTagName('parsererror').length)throw new Error('Invalid trusted template XML');
+  const scripts=[...template.getElementsByTagName('*')].filter(n=>n.localName==='script');
+  const script=name=>{
+    const text=scripts.find(n=>n.getAttribute('name')===name)?.textContent;
+    if(!text)throw new Error('Missing trusted address validation data');
+    return text;
+  };
+  const choices=script('StatesAndCountriesJS'),common=script('Common'),bsa=script('BSACommon');
+  const countries=JSON.parse(choices.match(/var oCountries = (\[[\s\S]*?\]);/)?.[1]||'null');
+  const states=JSON.parse((choices.match(/var oStates\s*=\s*({[\s\S]*?});/)?.[1]||'null').replace(/'([^']+)'\s*:/g,'"$1":'));
+  const literal=(text,name)=>{
+    const match=text.match(new RegExp('var '+name+'\\s*=\\s*("(?:[^"\\\\]|\\\\.)*")\\s*;'));
+    if(!match)throw new Error('Missing trusted postal validation data');
+    return JSON.parse(match[1]);
+  };
+  const postalFunction=choices.match(/function countryIsUSCAMX\([^)]*\)\s*\{([\s\S]*?)\n\}/)?.[1]||'';
+  const postalRequiredCountries=[...postalFunction.matchAll(/countryValue\s*==\s*"([A-Z]{2})"/g)].map(match=>match[1]);
+  if(!countries?.length||!states||!postalRequiredCountries.length)throw new Error('Invalid trusted address validation data');
+  return {countries,states,postalRequiredCountries,postalPatterns:{
+    us:literal(common,'ZIP_REGEX'),usInvalid:literal(common,'ZIP_REGEX_INVALID'),foreign:literal(bsa,'FOREIGN_POSTAL_CODE'),
+    institution:literal(bsa,'FOREIGN_POSTAL_CODE'),
+  }};
+}
+
+export function isValidDob(value) {
+  if(!/^\d{8}$/.test(value))return false;
+  const month=Number(value.slice(0,2)),day=Number(value.slice(2,4)),year=Number(value.slice(4));
+  const date=new Date(Date.UTC(year,month-1,day));
+  return year>=1900&&date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
+}
+
 async function makeDobFormState(xml,templateXml,{restoreUnboundDob,restoreFilerAndPartIIAddresses,restoreAllAddresses}) {
   const document=new DOMParser().parseFromString(xml,'application/xml');
   if(document.getElementsByTagName('parsererror').length)throw new Error('Invalid datasets XML');
@@ -119,20 +154,14 @@ async function makeDobFormState(xml,templateXml,{restoreUnboundDob,restoreFilerA
   let dobState='';
   if(value){
   if(!/^\d{8}$/.test(value))throw new Error('DOB must use MMDDYYYY');
-  const month=Number(value.slice(0,2)),day=Number(value.slice(2,4)),year=Number(value.slice(4));
-  const date=new Date(Date.UTC(year,month-1,day));
-  if(year<1900 || date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 || date.getUTCDate()!==day)
+  if(!isValidDob(value))
     throw new Error('DOB is not a valid calendar date');
   const display=`${value.slice(0,2)}/${value.slice(2,4)}/${value.slice(4)}`;
   dobState=`<subform name="DobLastSub"><field name="dob"><value override="1"><text>${display}</text></value></field></subform>`;
   }
   let addressState='',accountState='',extraState='';
   if(restoreFilerAndPartIIAddresses||restoreAllAddresses){
-    const template=new DOMParser().parseFromString(templateXml,'application/xml');
-    const script=[...template.getElementsByTagName('*')].find(n=>n.localName==='script'&&n.getAttribute('name')==='StatesAndCountriesJS')?.textContent;
-    // Read only the literal lists in the fingerprinted official template. Never eval form scripts.
-    const countries=JSON.parse(script.match(/var oCountries = (\[[\s\S]*?\]);/)[1]);
-    const states=JSON.parse(script.match(/var oStates\s*=\s*({[\s\S]*?});/)[1].replace(/'([^']+)'\s*:/g,'"$1":'));
+    const {countries,states}=addressRules(templateXml);
     const escape=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
     const items=pairs=>[0,1].map(i=>`<items save="${i}">`+pairs.map(pair=>'<text>'+escape(pair[i])+'</text>').join('')+'</items>').join('');
     const countryItems=items([['',''],...countries]);

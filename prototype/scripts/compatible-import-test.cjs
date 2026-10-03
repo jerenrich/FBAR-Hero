@@ -1,6 +1,7 @@
 // Public blank + invented values only. Never copies the user's completed PDF into fixtures.
 const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
 const {createServer}=require('../pdfjs/server.cjs');
+const {filerInput}=require('./filer-test-utils.cjs');
 (async()=>{
  const out='prototype/results/compatible-import';fs.mkdirSync(out,{recursive:true});
  const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.0.1:${server.address().port}`;
@@ -37,8 +38,8 @@ const {createServer}=require('../pdfjs/server.cjs');
     const strict=await page.evaluate(async bytes=>{const reference=(await writer.inspectXfa(PDFLib,blankBytes)).packets.template.bytes;try{await dm.readPdf(new Uint8Array(bytes),reference);return false;}catch{return true;}},bytes);assert.equal(strict,true);
     await page.locator('#import-file').setInputFiles(path);await page.locator('#dialog-actions [data-action=discard]').click();await page.locator('#continue-year').click();await page.waitForFunction(()=>!document.querySelector('header').inert);
     assert.match(await page.locator('#status').textContent(),/^Continuing report year/);
-    assert.equal(await page.getByLabel('Late filing reason',{exact:true}).inputValue(),'');
-    assert.equal(await page.getByLabel('Filer type',{exact:true}).inputValue(),'A');
+    assert.equal(await filerInput(page,'Late filing reason').inputValue(),'');await page.locator('#filer-cancel').click();
+    assert.equal(await filerInput(page,'Filer type').inputValue(),'A');await page.locator('#filer-cancel').click();
     const result=await page.evaluate(async()=>{const m=experiment.getModel(),bytes=await experiment.buildDraft(),p=await writer.inspectXfa(PDFLib,bytes),b=await writer.inspectXfa(PDFLib,blankBytes);return {count:dm.records(m,'FinAcctOwnedSeparately').length,specification:dm.value(m.root,'EFileSubmissionInformation/SpecificationVersion'),viewerMetadataRemoved:!dm.serialize(m).includes('SYNTHETIC VIEWER STATE'),trustedTemplate:p.packets.template.bytes.every((v,i)=>v===b.packets.template.bytes[i]),notices:m.notices};});
     assert.equal(result.count,3);assert.equal(result.specification,'0051');assert(result.viewerMetadataRemoved&&result.trustedTemplate);cases.push({kind,passed:true,...result});
    }else{
