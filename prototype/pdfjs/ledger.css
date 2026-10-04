@@ -129,3 +129,8 @@ body:has(#welcome:not([hidden])) .ledger-sidebar{background:transparent;border:0
 body:has(#welcome:not([hidden])) #workspace-content{max-width:900px}
 @media(max-width:700px){body:has(#welcome:not([hidden])) .ledger-sidebar{padding-bottom:0}#welcome h1{font-size:36px}.work-context{width:auto;flex:1}#workbar{align-items:center}.work-actions{width:auto;flex-wrap:wrap}.work-actions #draft{min-width:0}#work-summary{font-size:11px}}
 @media(max-width:700px){.ledger-sidebar{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-items:center}.report-card{display:block;margin:0;padding:0;border:0;background:transparent;text-align:right}.report-card small{font-size:10px;margin-top:3px}.report-card strong{font-size:12px}#section-nav,.file-actions{grid-column:1/-1}.work-context{flex-basis:100%}.work-actions{width:100%}.work-actions #draft{flex:1}}
+
+/* Save guidance is available on touch devices and from the keyboard. */
+.work-actions #save-help{font-size:20px;line-height:1;padding:8px;min-width:38px;min-height:38px;background:transparent;border-color:transparent}
+#save-help-popover{position:fixed;inset:80px 16px auto auto;margin:0;width:min(360px,calc(100vw - 32px));padding:20px;color:#293e31;background:#fff;border:1px solid #d5decd;border-radius:6px;box-shadow:0 8px 30px #293e3126}
+#save-help-popover h2{font-size:18px;margin-bottom:12px}#save-help-popover p{font-size:13px;margin-bottom:12px}#save-help-popover button{float:right}
