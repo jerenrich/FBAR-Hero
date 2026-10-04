@@ -51,7 +51,7 @@ const plain=text=>{assert.match(text,/^[A-Za-z0-9 ]*$/);return text;};
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
   await page.locator('#export-close').click();
   assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
-  assert.match(await page.locator('#status').textContent(),/Save PDF to keep unattached institution and owner rows/);
+  assert.match(await page.locator('#status').textContent(),/Save Draft to keep unattached institution and owner rows/);
   const download=page.waitForEvent('download');await page.locator('#save-work').click();
   const saved=await download,file=path.join(folder,saved.suggestedFilename());await saved.saveAs(file);
   const work=await require('./read-saved-pdf-work.cjs')(file);assert.equal(work.owners.rows.length,2);assert.deepEqual(work.owners.links,[0,0]);

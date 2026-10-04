@@ -39,7 +39,7 @@ const readSavedPdfWork=require('./read-saved-pdf-work.cjs');
   const pdfDownload=page.waitForEvent('download');await page.locator('#draft').click();await pdfDownload;
   await page.locator('#export-close').click();
   assert.match(await page.locator('#work-summary').textContent(),/Unsaved changes/);
-  assert.match(await page.locator('#status').textContent(),/Save PDF to keep unattached institution and owner rows/);
+  assert.match(await page.locator('#status').textContent(),/Save Draft to keep unattached institution and owner rows/);
   const download=page.waitForEvent('download');await page.locator('#save-work').click();
   const saved=await download;const file=path.join(folder,saved.suggestedFilename());await saved.saveAs(file);
   const work=await readSavedPdfWork(file);

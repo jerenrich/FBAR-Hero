@@ -147,7 +147,7 @@ async function sha256(text){return Array.from(new Uint8Array(await crypto.subtle
 function hasDuplicateRows(rows,key){return new Set(rows.map(key)).size!==rows.length;}
 async function allowReplace(){
  if(!model||!dirty)return true;
- const choice=await ask('Discard unsaved changes?', 'You have unsaved changes. Starting or opening another draft will discard them. To save your work first, select Cancel, then Save PDF.',[['cancel','Cancel'],['discard','Discard and Continue']]);
+ const choice=await ask('Discard unsaved changes?', 'You have unsaved changes. Starting or opening another draft will discard them. To save your work first, select Cancel, then Save Draft.',[['cancel','Cancel'],['discard','Discard and Continue']]);
  return choice==='discard';
 }
 async function resumeWork(text){
@@ -162,7 +162,7 @@ async function resumeWork(text){
  if(!await allowReplace())return;
  model=next;synthetic=saved.synthetic;resetSession();initializeInstitutions(saved.institutions);initializeOwners(saved.owners);initializePriorBalances(saved.priorBalances);dirty=false;lastSaved=draftSnapshot();lastSavedKind='resumed';
  $('#notices').textContent=synthetic?'Synthetic test records. Never submit these PDFs.':'';
- renderTable();$('#save-note').textContent='Save PDF to keep further edits. There is no automatic saving.';
+ renderTable();$('#save-note').textContent='Save Draft to keep further edits. There is no automatic saving.';
  setStatus('Saved work resumed, including unfinished entries. Review and continue editing.');
  return next;
 }
@@ -173,7 +173,7 @@ function resetSession(){
  history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
  $('#dob')?.removeAttribute('aria-invalid');$('#dob')?.removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;
- $('#save-note').textContent='Save PDF to keep unfinished work. There is no automatic saving.';
+ $('#save-note').textContent='Save Draft to keep unfinished work. There is no automatic saving.';
  $('#comparison').replaceChildren();
 }
 function updateConditions(){
@@ -222,7 +222,7 @@ function setStatus(message,kind='info'){
  if(accountEdit&&kind!=='error')return;
  if(accountEdit&&kind==='error'){$('#account-error').textContent=message;$('#account-error').hidden=false;}
  status.textContent=message;status.dataset.kind=kind;
- const local=$('#editor-status');local.textContent=message;local.dataset.kind=kind;local.hidden=!message||(kind!=='error'&&!message.includes('Save PDF to keep unattached'));
+ const local=$('#editor-status');local.textContent=message;local.dataset.kind=kind;local.hidden=!message||(kind!=='error'&&!message.includes('Save Draft to keep unattached'));
  const notes=$('#notices').textContent.trim();
  $('#import-notes').hidden=!notes||(synthetic&&notes==='Synthetic test records. Never submit these PDFs.');$('#synthetic-note').hidden=!synthetic;
 }
@@ -794,7 +794,7 @@ async function importPdf(bytes,{protect=false}={}){
  const padding=next.notices.filter(n=>n.startsWith('Removed form dropdown padding')).length;
  const notes=next.notices.filter(n=>!n.startsWith('Removed form dropdown padding')).map(n=>n.startsWith('Cleared prior submission state:')?'Cleared prior signing and submission information.':n);
  $('#notices').textContent=[...new Set([...(synthetic?['Synthetic test records. Never submit these PDFs.']:[]),'Prior signing state is not copied.',...notes,...(padding?[`Normalized padding in ${padding} option values.`]:[])])].join('\n');
- $('#save-note').textContent='Save PDF to keep further edits. There is no automatic saving.';
+ $('#save-note').textContent='Save Draft to keep further edits. There is no automatic saving.';
  setStatus(saved?'Saved PDF reopened, including unfinished entries. Review and continue editing.':'PDF imported. Your source file is unchanged. Choose whether to continue this year or prepare another year.');return next;
 }
 function validWorkState(saved,root){
@@ -843,7 +843,7 @@ $('#import-file').onchange=async e=>{
  if(choice)ledger.show('accounts',{focus:true});
 };
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
-$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save PDF to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save Draft to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
@@ -855,7 +855,7 @@ for(const kind of ['institution','owner']){
  $('#clear-'+kind+'-search').onclick=()=>{sharedSearch[kind]='';$('#'+kind+'-search').value='';refresh();$('#'+kind+'-search').focus();};
 }
 $('#apply').onclick=()=>runAction(async()=>{await regenerate();ledger.showPreview();});
-$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Check and download your unsigned draft when ready.');if(issues.length){ledger.show('review');$('#issues').scrollIntoView({block:'start'});}};
+$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Select Save Final to download your unsigned PDF when ready.');if(issues.length){ledger.show('review');$('#issues').scrollIntoView({block:'start'});}};
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);initializeOwners(saved.owners);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
  restoreRecordState(saved);previousValues=new Map(saved.previousValues||[]);

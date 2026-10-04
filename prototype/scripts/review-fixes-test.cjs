@@ -121,7 +121,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
    assert.equal(await snapshot(aggregate),before);assert.equal(await beforeUnload(aggregate),false);await aggregate.close();
   }
 
-  // Save PDF must preserve unfinished values that cannot be restored into the
+  // Save Draft must preserve unfinished values that cannot be restored into the
   // government form display, while checked export continues to reject them.
   for(const [name,changes] of [
    ['invalid-country',{'FilerInformation/Address/Country':plain('INVALID')}],

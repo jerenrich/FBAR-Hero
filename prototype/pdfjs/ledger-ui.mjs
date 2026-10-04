@@ -117,7 +117,7 @@ export function createLedger(getSnapshot, editActions) {
   $('#nav-issue-count').hidden = !snapshot.issues;
   $('#nav-issue-count').textContent = snapshot.issues;
   $('#review-readiness').textContent = snapshot.issues ? `${snapshot.issues} field${snapshot.issues===1?'':'s'} need${snapshot.issues===1?'s':''} attention` : 'Required fields complete';
-  $('#review-description').textContent = snapshot.issues ? 'Check fields to open the list of missing or invalid entries.' : 'Check & download verifies the PDF against your entries.';
+  $('#review-description').textContent = snapshot.issues ? 'Check fields to open the list of missing or invalid entries.' : 'Save Final checks required fields and verifies the PDF against your entries.';
   register(snapshot); applySelection();
  };
  const reveal = input => {
