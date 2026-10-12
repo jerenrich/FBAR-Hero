@@ -2,9 +2,11 @@ import * as pdfjs from '/vendor/pdfjs/build/pdf.mjs';
 import {fillBlankTemplate,inspectXfa,addressRules} from '/xfa-packet-writer.mjs';
 import * as data from './data-model.mjs';
 import {createLedger} from './ledger-ui.mjs';
+import {restorePreviewValues} from './preview-values.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/build/pdf.worker.mjs';
 const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
+pages.classList.toggle('read-only-preview',!diagnosticMode);
 $('#save').hidden=!diagnosticMode;
 let inputs=new Map(),history=[],lastSaved='',lastSavedKind='';
 let nextFeedbackId=0;
@@ -142,14 +144,14 @@ async function saveWork(){
  const decoded=await data.readPdf(bytes,reference);
  const result=valid?data.comparePdfData(model.root,decoded):data.compareRoots(model.root,decoded.root);
  if(!result.matched)throw Error('Saved PDF differs from your entries. No download was requested.');
- download(bytes,workFilename());
+ download(bytes,reportFilename(`${synthetic?'SYNTHETIC-':''}FBAR-work`));
  lastSaved=draftSnapshot();lastSavedKind='work';dirty=false;updateProgress();
  $('#save-note').textContent='Check your browser downloads. Keep the PDF in a private location and reopen it here to continue.';
  setStatus('PDF download requested. Check your browser downloads before closing.');return true;
 }
-function workFilename(){
+function reportFilename(name){
  const year=value(model.root,'FilerInformation/CalendarYear');
- return `${synthetic?'SYNTHETIC-':''}FBAR-work${/^\d{4}$/.test(year)?'-'+year:''}.pdf`;
+ return `${name}${/^\d{4}$/.test(year)?'-'+year:''}.pdf`;
 }
 async function sha256(text){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),byte=>byte.toString(16).padStart(2,'0')).join('');}
 function hasDuplicateRows(rows,key){return new Set(rows.map(key)).size!==rows.length;}
@@ -833,8 +835,11 @@ async function buildDraft(){
  draftBlob=blob;draftComparison=result;
  draft=bytes;return bytes;
 }
-export async function regenerate(){await buildDraft();return openBytes(draft.slice());}
-export async function openBytes(bytes){
+export async function regenerate(){await buildDraft();return openBytes(draft.slice(),{unsigned:true});}
+export async function openBytes(bytes,{unsigned=false}={}){
+  await assets();
+  const {packets}=await inspectXfa(PDFLib,new Uint8Array(bytes),{packetNames:new Set(['datasets'])});
+  const previewRoot=data.business(data.xml(new TextDecoder().decode(packets.datasets.bytes)));
   if(loadingTask)await loadingTask.destroy();
   pages.replaceChildren();
   loadingTask=pdfjs.getDocument({data:new Uint8Array(bytes),enableXfa:true,
@@ -857,6 +862,7 @@ export async function openBytes(bytes){
       control.tabIndex=-1;
     }
   }
+  if(!diagnosticMode)restorePreviewValues(pages,{root:previewRoot,catalog,unsigned});
   $('#preview-warning').hidden=true;
   setStatus(`Preview updated · ${doc.numPages} pages. Save a PDF to keep your changes.`);
   document.querySelector('#save').disabled=false;
@@ -935,7 +941,7 @@ $('#import-file').onchange=async e=>{
  if(choice)ledger.show('accounts',{focus:true});
 };
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
-$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save Draft to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=reportFilename(synthetic?'SYNTHETIC-UNSIGNED-writer':'FBAR-unsigned-draft');downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save Draft to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
@@ -965,7 +971,7 @@ function chooseImportedYear(){
  $('#import-summary').textContent=`Reporting year: ${year||'not set'} · ${count} account${count===1?'':'s'}.`;
  $('#continue-year-description').textContent=`Keep ${year||'the current year'} and its balances.`;
  $('#import-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';
- $('#import-year-effects').textContent=`Starting another year clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
+ $('#import-year-effects').textContent=`Starting another year updates prior years in the filing name and clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
  const clearError=()=>{$('#import-year-error').hidden=true;$('#import-year-error').textContent='';$('#import-year').removeAttribute('aria-invalid');};
  clearError();$('#import-choices').hidden=false;$('#import-year-form').hidden=true;
  return new Promise(resolve=>{

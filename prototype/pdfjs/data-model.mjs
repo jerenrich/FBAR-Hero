@@ -186,6 +186,13 @@ export function comparePdfData(expected,decoded,options={}){
 }
 export function rollover(model,year){
  if(!/^\d{4}$/.test(year))throw Error('Enter a four digit report year.');
+ const sourceYear=value(model.root,'FilerInformation/CalendarYear');
+ if(year!==sourceYear){
+  const filingName=field(model.root,'EFileSubmissionInformation/FilingName');
+  // Replace year tokens without changing names or longer numeric identifiers.
+  filingName.textContent=filingName.textContent.replace(/\b\d{4}\b/g,token=>
+   Number(token)>=1900&&Number(token)<Number(year)?year:token);
+ }
  field(model.root,'FilerInformation/CalendarYear').textContent=year;
  for(const path of ['FilerInformation/AmendToPriorReports','FilerInformation/DocumentControlNumber','FilerInformation/LateFilingReason','LatefilingNarrative/ExplanationOrDescription'])field(model.root,path).textContent='';
  for(const name of branches)for(const a of records(model,name))for(const k of ['MaximumAccntValue','MaximumAccntUnkn'])field(a,k).textContent='';
