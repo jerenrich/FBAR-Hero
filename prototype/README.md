@@ -122,6 +122,8 @@ Run `node prototype/scripts/validation-rules-test.cjs` for trusted country and s
 
 **Save Final** checks required fields and downloads an unsigned PDF without editor metadata. Review, validate and sign it in Adobe Reader before filing.
 
+Both **Save Draft** and **Save Final** include the report's four digit reporting year in the filename, for example `FBAR-work-2025.pdf` and `FBAR-unsigned-draft-2025.pdf`. An unfinished draft without a valid year keeps the filename without a year.
+
 **Save Draft** starts a PDF download directly, even when required fields are missing or values are invalid. Its form data preserves unfinished entries. The app adds an editor-specific catalog entry only when unattached or identical institution or owner rows cannot be reconstructed from form fields, or when synthetic test data must retain its test-only status. Checked Reader handoff PDFs never include this entry. Saved PDFs contain sensitive personal and financial information; keep them in a private location. No automatic browser storage or network upload is added.
 
 Use **Open FBAR** to reopen a saved PDF or import a completed one. The app checks saved work data against the PDF form data and preserves incomplete values. Signed state is never restored. Previously downloaded JSON work files can also be opened through this same control for migration. **Save Final** remains the validated Reader handoff; its output does not carry the editor's extra shared rows. The app can request a download but cannot confirm that the browser saved it, so users are told to check their downloads. Save-before-replacement also asks the user to confirm the downloaded copy is available.

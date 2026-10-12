@@ -134,14 +134,14 @@ async function saveWork(){
  const decoded=await data.readPdf(bytes,reference);
  const result=valid?data.comparePdfData(model.root,decoded):data.compareRoots(model.root,decoded.root);
  if(!result.matched)throw Error('Saved PDF differs from your entries. No download was requested.');
- download(bytes,workFilename());
+ download(bytes,reportFilename(`${synthetic?'SYNTHETIC-':''}FBAR-work`));
  lastSaved=draftSnapshot();lastSavedKind='work';dirty=false;updateProgress();
  $('#save-note').textContent='Check your browser downloads. Keep the PDF in a private location and reopen it here to continue.';
  setStatus('PDF download requested. Check your browser downloads before closing.');return true;
 }
-function workFilename(){
+function reportFilename(name){
  const year=value(model.root,'FilerInformation/CalendarYear');
- return `${synthetic?'SYNTHETIC-':''}FBAR-work${/^\d{4}$/.test(year)?'-'+year:''}.pdf`;
+ return `${name}${/^\d{4}$/.test(year)?'-'+year:''}.pdf`;
 }
 async function sha256(text){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),byte=>byte.toString(16).padStart(2,'0')).join('');}
 function hasDuplicateRows(rows,key){return new Set(rows.map(key)).size!==rows.length;}
@@ -843,7 +843,7 @@ $('#import-file').onchange=async e=>{
  if(choice)ledger.show('accounts',{focus:true});
 };
 $('#compare-file').onchange=e=>runAction(async()=>{const file=e.target.files[0];e.target.value='';if(!file)return;setStatus('Comparing your PDF locally…');if(file.size>25_000_000)throw Error('Choose a PDF smaller than 25 MB.');const result=await comparePdf(new Uint8Array(await file.arrayBuffer()));showExportResult(result,{stage:'comparison'});});
-$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=synthetic?'SYNTHETIC-UNSIGNED-writer.pdf':'FBAR-unsigned-draft.pdf';downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save Draft to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
+$('#draft').onclick=()=>runAction(async()=>{await buildDraft();const filename=reportFilename(synthetic?'SYNTHETIC-UNSIGNED-writer':'FBAR-unsigned-draft');downloadBlob(draftBlob,filename);const unused=hasUnusedInstitutions()||hasUnusedOwners();dirty=unused;lastSaved=unused?'':draftSnapshot();lastSavedKind='pdf';updateProgress();ledger.show('review');$('#handoff').hidden=false;setStatus('PDF download requested.'+(unused?' Save Draft to keep unattached institution and owner rows.':''));showExportResult(draftComparison,{stage:'automatic'});});
 $('#export-close').onclick=()=>$('#export-dialog').close();
 $('#save').onclick=()=>runAction(async()=>download(doc.annotationStorage.size?await doc.saveDocument():await doc.getData(),'SYNTHETIC-UNSIGNED-pdfjs.pdf'));
 $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
