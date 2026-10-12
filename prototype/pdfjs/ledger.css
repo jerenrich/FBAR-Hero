@@ -83,6 +83,10 @@ dialog::backdrop{background:#1a2b226b;backdrop-filter:blur(3px)}dialog h2{font:2
 #editor #import-notes{background:transparent;border:0;border-top:1px solid #e0e6d7;padding:12px 0;margin-top:18px}#editor #import-notes summary{font-size:12px;font-weight:400;color:#6d7e60}#import-notes #notices{margin-top:10px;font-size:12px;color:#667959}#synthetic-note{font-size:12px;color:#87522e;margin-top:15px}
 @media(max-width:700px){.page-heading{align-items:flex-start;gap:12px;flex-wrap:wrap}#section-actions{width:100%}.shared-toolbar{align-items:flex-start;flex-direction:column;gap:9px}.shared-search{width:100%}.shared-search .account-search{max-width:none;flex:1;min-width:0}.detail-actions{width:100%;justify-content:space-between}.detail-heading .account-pager button{padding:3px 8px}}
 
+/* PDF.js marks every required widget red, regardless of whether it is filled.
+   Field validation belongs to Review; the PDF preview is read only. */
+#pages.read-only-preview .xfaLayer *:required{outline:none}
+
 /* Compact work tables and focused shared-record editing. */
 #editor{padding-top:24px}.page-heading{margin-bottom:22px}.page-heading h1{font-size:30px;margin:8px 0 10px}.grid-hint{margin:9px 0 14px;line-height:1.6}
 /* Review summaries and a staged editor for filer details. */

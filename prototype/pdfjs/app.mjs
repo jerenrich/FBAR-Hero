@@ -2,9 +2,11 @@ import * as pdfjs from '/vendor/pdfjs/build/pdf.mjs';
 import {fillBlankTemplate,inspectXfa,addressRules} from '/xfa-packet-writer.mjs';
 import * as data from './data-model.mjs';
 import {createLedger} from './ledger-ui.mjs';
+import {restorePreviewValues} from './preview-values.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/build/pdf.worker.mjs';
 const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
+pages.classList.toggle('read-only-preview',!diagnosticMode);
 $('#save').hidden=!diagnosticMode;
 let inputs=new Map(),history=[],validationActive=false,lastSaved='',lastSavedKind='';
 const revealedAccounts=new WeakSet();
@@ -741,8 +743,11 @@ async function buildDraft(){
  draftBlob=blob;draftComparison=result;
  draft=bytes;return bytes;
 }
-export async function regenerate(){await buildDraft();return openBytes(draft.slice());}
-export async function openBytes(bytes){
+export async function regenerate(){await buildDraft();return openBytes(draft.slice(),{unsigned:true});}
+export async function openBytes(bytes,{unsigned=false}={}){
+  await assets();
+  const {packets}=await inspectXfa(PDFLib,new Uint8Array(bytes),{packetNames:new Set(['datasets'])});
+  const previewRoot=data.business(data.xml(new TextDecoder().decode(packets.datasets.bytes)));
   if(loadingTask)await loadingTask.destroy();
   pages.replaceChildren();
   loadingTask=pdfjs.getDocument({data:new Uint8Array(bytes),enableXfa:true,
@@ -765,6 +770,7 @@ export async function openBytes(bytes){
       control.tabIndex=-1;
     }
   }
+  if(!diagnosticMode)restorePreviewValues(pages,{root:previewRoot,catalog,unsigned});
   $('#preview-warning').hidden=true;
   setStatus(`Preview updated · ${doc.numPages} pages. Save a PDF to keep your changes.`);
   document.querySelector('#save').disabled=false;
