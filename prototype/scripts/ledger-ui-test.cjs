@@ -10,7 +10,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
  const output=path.resolve('prototype/results/ledger');fs.mkdirSync(output,{recursive:true});
  const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin=`http://127.0.0.1:${server.address().port}`;
- const browser=await chromium.launch({channel:'chrome',headless:true});
+ const browser=await chromium.launch({...(process.env.FBAR_BROWSER_PATH?{executablePath:process.env.FBAR_BROWSER_PATH}:{channel:'chrome'}),headless:true});
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});
   const page=await context.newPage(),errors=[],external=[],layouts=[];
@@ -30,6 +30,28 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await nav('review');assert(await page.locator('#panel-review').isVisible());
   await nav('accounts');assert.equal(await page.locator('.row-status.attention').count(),1);
   await page.evaluate(()=>experiment.generate(3));await nav('accounts');
+  // New-year names replace standalone prior years, preserving other text and IDs.
+  const nameCases=[
+   ['SYNTHETIC FBAR 2025','2025','2026','SYNTHETIC FBAR 2026'],
+   ['2023 SYNTHETIC 2025','2025','2026','2026 SYNTHETIC 2026'],
+   ['SYNTHETIC FBAR','2025','2026','SYNTHETIC FBAR'],
+   ['','2025','2026',''],
+   ['SYNTHETIC 2026 2027','2025','2026','SYNTHETIC 2026 2027'],
+   ['SYNTHETIC 12025 TEST2025 1234','2025','2026','SYNTHETIC 12025 TEST2025 1234'],
+   ['SYNTHETIC 2024','2025','2025','SYNTHETIC 2024'],
+  ];
+  for(const [name,sourceYear,targetYear,expected] of nameCases){
+   for(const text of [name,sourceYear,targetYear,expected])plain(text);
+   const actual=await page.evaluate(async({name,sourceYear,targetYear})=>{
+    const data=await import('/pdfjs/data-model.mjs'),current=experiment.getModel();
+    const model=data.importData(data.createModel(data.serialize(current),current.catalog),current.root,{preserveValues:true});
+    data.field(model.root,'EFileSubmissionInformation/FilingName').textContent=name;
+    data.field(model.root,'FilerInformation/CalendarYear').textContent=sourceYear;
+    data.rollover(model,targetYear);
+    return data.value(model.root,'EFileSubmissionInformation/FilingName');
+   },{name,sourceYear,targetYear});
+   assert.equal(actual,expected);
+  }
   assert.equal(await page.locator('.register-table tbody tr').count(),3);
   assert.equal(await page.locator('#account-dialog').isVisible(),false);
   await page.screenshot({path:path.join(output,'accounts-desktop.png')});
@@ -71,6 +93,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await nav('owners');await page.locator('#add-owner').click();
   await input('Owner 1 Last name or organization name').fill(plain('UNUSED OWNER'));await page.locator('#record-form button[type=submit]').click();
   await nav('filer');await filerInput(page,'First name').fill('');
+  await filerInput(page,'Filing name').fill(plain('SYNTHETIC FBAR 2025'));
   await nav('accounts');await edit(1);await input('Maximum USD 1').fill(plain('MISSING'));await page.locator('#close-account').click();
   const snapshot=await page.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());});
   const download=page.waitForEvent('download');await page.locator('#save-work').click();
@@ -93,6 +116,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.equal(await reopened.evaluate(async()=>{const data=await import('/pdfjs/data-model.mjs');return data.serialize(experiment.getModel());}),snapshot);
   await reopened.locator('#continue-year').click();await reopened.waitForFunction(()=>!document.querySelector('#editor').inert);
   assert(await reopened.locator('#panel-accounts').isVisible());
+  assert.equal(await reopened.locator('[data-filer-column=filing_name] dd').textContent(),'SYNTHETIC FBAR 2025');
   assert(await reopened.locator('#synthetic-note').isVisible());
   assert.equal(await reopened.locator('#import-notes').getAttribute('open'),null);
   await reopened.locator('#import-notes summary').click();assert.match(await reopened.locator('#notices').textContent(),/Prior signing state is not copied/);
@@ -115,6 +139,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   await reopened.screenshot({path:path.join(output,'import-year-390.png')});
   await submit.click();await reopened.waitForFunction(()=>!document.querySelector('#editor').inert);
   assert(await reopened.locator('#panel-accounts').isVisible());assert.equal(await reopened.locator('[data-filer-column=report_year] dd').textContent(),'2026');
+  assert.equal(await reopened.locator('[data-filer-column=filing_name] dd').textContent(),'SYNTHETIC FBAR 2026');
   assert.equal(await reopened.getByLabel('Maximum USD 1',{exact:true}).inputValue(),'');
   assert.equal(await reopened.getByLabel('Account number 1',{exact:true}).inputValue(),'0000TEST001');
   assert.match(await reopened.locator('#institution-scroll').textContent(),/UNUSED BANK/);

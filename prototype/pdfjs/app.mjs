@@ -873,7 +873,7 @@ function chooseImportedYear(){
  $('#import-summary').textContent=`Reporting year: ${year||'not set'} · ${count} account${count===1?'':'s'}.`;
  $('#continue-year-description').textContent=`Keep ${year||'the current year'} and its balances.`;
  $('#import-year').value=/^\d{4}$/.test(year)&&Number(year)<9999?String(Number(year)+1):'';
- $('#import-year-effects').textContent=`Starting another year clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
+ $('#import-year-effects').textContent=`Starting another year updates prior years in the filing name and clears maximum balances and unknown-value flags for ${count} account${count===1?'':'s'}, plus amendment details and late-filing explanations. Filer, institution, owner and account details are kept. Review which accounts belong in the new year. You can undo this change.`;
  const clearError=()=>{$('#import-year-error').hidden=true;$('#import-year-error').textContent='';$('#import-year').removeAttribute('aria-invalid');};
  clearError();$('#import-choices').hidden=false;$('#import-year-form').hidden=true;
  return new Promise(resolve=>{
