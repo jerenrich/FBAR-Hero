@@ -131,6 +131,10 @@ body:has(#welcome:not([hidden])) #workspace-content{max-width:900px}
 @media(max-width:700px){.ledger-sidebar{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-items:center}.report-card{display:block;margin:0;padding:0;border:0;background:transparent;text-align:right}.report-card small{font-size:10px;margin-top:3px}.report-card strong{font-size:12px}#section-nav,.file-actions{grid-column:1/-1}.work-context{flex-basis:100%}.work-actions{width:100%}.work-actions #draft{flex:1}}
 
 /* Save guidance is available on touch devices and from the keyboard. */
+.field-control{min-width:0;max-width:100%}.field-error{display:block;margin-top:5px;color:#923d2d;font-size:11px;font-weight:400;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+.has-field-error{background:#fff8f4;border-radius:3px}.has-field-error .field-error{padding:0 4px 3px}
+button.error-link{display:block;border:0;border-radius:0;background:transparent;padding:0;text-align:left;color:#923d2d;font-size:11px;line-height:1.5;text-decoration:underline;text-underline-offset:3px;white-space:normal}
+button.error-link:hover{background:#fff8f4}.register-table td:has(.field-error:not([hidden])),.shared-table td:has(.field-error:not([hidden])){vertical-align:top}
 .work-actions #save-help{font-size:20px;line-height:1;padding:8px;min-width:38px;min-height:38px;background:transparent;border-color:transparent}
 #save-help-popover{position:fixed;inset:80px 16px auto auto;margin:0;width:min(360px,calc(100vw - 32px));padding:20px;color:#293e31;background:#fff;border:1px solid #d5decd;border-radius:6px;box-shadow:0 8px 30px #293e3126}
 #save-help-popover h2{font-size:18px;margin-bottom:12px}#save-help-popover p{font-size:13px;margin-bottom:12px}#save-help-popover button{float:right}

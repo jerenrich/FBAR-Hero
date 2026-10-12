@@ -9,7 +9,7 @@ If you filed in a previous year, you can import your completed FBAR and copy its
 - **Start fresh or pick up where you left off.** Create a blank draft or open an FBAR PDF to continue editing or reuse a previous filing.
 - **Manage accounts in one place.** See every account in a compact table with full account numbers and small completion icons. Edit maximum USD inline, see the carried prior year value on hover, and save or cancel other account edits in a dialog, and manage reusable institutions and owners in edit dialogs. The workspace adapts to desktop and narrow screens.
 - **Reuse accounts next year.** Carry account details forward while clearing annual values for review.
-- **Catch issues before downloading.** Follow links from validation messages to the fields that need attention, then download a checked unsigned PDF.
+- **Catch issues as you edit.** See specific validation messages beside inputs and summary values, with feedback that updates as you correct entries. Select an issue in the account register or Review list to open the affected field, then download a checked unsigned PDF.
 - **Keep control of your files.** The app processes documents in your browser. Save a PDF whenever you want to keep your work; it does not upload your documents.
 
 ## Try the prototype locally

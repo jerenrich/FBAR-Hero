@@ -35,7 +35,7 @@ export function createLedger(getSnapshot, editActions) {
   document.querySelectorAll('#owner-details .owner-card').forEach(card=>card.hidden=Number(card.dataset.accountIndex)!==selected);
   const amount=latest?.accounts[selected]?.controls?.amount;
   const amountCell=rows[selected]?.querySelector('[data-label="Maximum USD"]');
-  if($('#account-dialog').open&&amount&&amountCell&&amount.parentElement!==amountCell)amountCell.append(amount);
+  if($('#account-dialog').open&&amount&&amountCell&&!amountCell.contains(amount))amountCell.append(amount.closest('.field-control')||amount);
   const item = latest?.accounts[selected];
   $('#account-detail-title').textContent = item ? `Account ${selected + 1} · ${item.name || 'New account'}` : 'Edit account';
   // Keep the selected register entry clear when detail changes rebuild its inputs.
@@ -87,10 +87,18 @@ export function createLedger(getSnapshot, editActions) {
        input.title=`${prior.year} maximum USD: ${amount}`;cell.title=input.title;
       }
       if($('#account-dialog').open&&index===selected)cell.textContent=account.unknown?'Unknown':account.amount||'Not entered';
-      else cell.append(input);
+      else cell.append(input.closest('.field-control')||input);
      }
     }else cell.textContent=key==='number'?account.number||'Not entered':account.category;
     if (key === 'amount') cell.className = 'register-amount';
+   }
+   for(const issue of account.issueDetails||[]){
+    // The amount input carries its own message when it moves into the register.
+    if(issue.column==='Maximum USD'&&!$('#account-dialog').open)continue;
+    const cell=[...row.cells].find(cell=>cell.dataset.label===issue.column);
+    const message=node('button',issue.message.replace(/^(?:Separately owned accounts|Jointly owned accounts|Signature authority accounts|Consolidated accounts) \d+(?: · |: )/,''),'field-error error-link');
+    message.type='button';message.onclick=()=>editActions.focusIssue(issue.node);
+    if(![...cell.querySelectorAll('.error-link')].some(note=>note.textContent===message.textContent))cell.append(message);
    }
    const action = row.insertCell();
    const button = node('button', '✎', 'edit-account'); button.dataset.editAccount = String(index);
@@ -117,7 +125,7 @@ export function createLedger(getSnapshot, editActions) {
   $('#nav-issue-count').hidden = !snapshot.issues;
   $('#nav-issue-count').textContent = snapshot.issues;
   $('#review-readiness').textContent = snapshot.issues ? `${snapshot.issues} field${snapshot.issues===1?'':'s'} need${snapshot.issues===1?'s':''} attention` : 'Required fields complete';
-  $('#review-description').textContent = snapshot.issues ? 'Check fields to open the list of missing or invalid entries.' : 'Save Final checks required fields and verifies the PDF against your entries.';
+  $('#review-description').textContent = snapshot.issues ? 'Issues are shown beside your entries. Select a field below to edit it.' : 'Save Final checks required fields and verifies the PDF against your entries.';
   register(snapshot); applySelection();
  };
  const reveal = input => {

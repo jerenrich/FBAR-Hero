@@ -6,7 +6,9 @@ pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/build/pdf.worker.mjs';
 const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
 $('#save').hidden=!diagnosticMode;
-let inputs=new Map(),history=[],validationActive=false,lastSaved='',lastSavedKind='';
+let inputs=new Map(),history=[],lastSaved='',lastSavedKind='';
+let nextFeedbackId=0;
+const feedback=new WeakMap();
 const revealedAccounts=new WeakSet();
 const accountControls=new WeakMap();let sharedFieldTargets=new Map();
 const sharedSearch={institution:'',owner:''};
@@ -45,10 +47,16 @@ const ledger=createLedger(()=>{
    category:categoryLabels[branch],amount:formatCurrency(value(record,'MaximumAccntValue')),
    unknown:value(record,'MaximumAccntUnkn')==='X',empty:!data.populated(record),
    issues:issues.filter(issue=>record.contains(issue.node)).length,controls:accountControls.get(record),
+   issueDetails:issues.filter(issue=>record.contains(issue.node)).map(issue=>({
+    node:issue.node,message:describeError(issue.message),
+    column:institutionColumns.some(([,path])=>field(record,path)===issue.node)?'Institution':
+     field(record,'AccntNumber')===issue.node?'Account number':
+     field(record,'MaximumAccntValue')===issue.node?'Maximum USD':'Ownership',
+   })),
    previous:previousValues.get(accountOrder.get(record)),
   })),
  };
-},{begin:beginAccountEdit,cancel:cancelAccountEdit,commit:commitAccountEdit,leaveFiler:()=>closeFilerEditor({focus:false})});
+},{begin:beginAccountEdit,cancel:cancelAccountEdit,commit:commitAccountEdit,leaveFiler:()=>closeFilerEditor({focus:false}),focusIssue:node=>focusField(inputs.get(node),node)});
 async function assets(){
  if(blank)return;
  const [pdf,c]=await Promise.all([fetch('/fixtures/official-blank.pdf').then(r=>r.arrayBuffer()),fetch('/pdfjs/field-catalog.json').then(r=>r.json())]);
@@ -57,11 +65,11 @@ async function assets(){
  catalog={...c,addressRules:addressRules(new TextDecoder().decode(reference))};blank=bytes;
 }
 function changed(){
- if(accountEdit){$('#account-error').hidden=true;updateConditions();if(validationActive)showIssues();updateProgress();return;}
+ if(accountEdit){$('#account-error').hidden=true;updateConditions();showIssues();updateProgress();return;}
  dirty=true;draft=null;draftBlob=null;draftComparison=null;$('#handoff').hidden=true;
  $('#comparison').replaceChildren();
  $('#preview-warning').hidden=!pages.children.length;
- updateConditions();if(validationActive)showIssues();updateProgress();
+ updateConditions();showIssues();updateProgress();
 }
 function captureState(){
  combinedRecords();
@@ -170,7 +178,7 @@ function resetSession(){
  accountEdit=null;filerEdit=null;sharedEdit=null;$('#filer-editor').close();$('#record-dialog').close();previousValues=new Map();ledger.reset();
  for(const kind of ['institution','owner']){sharedSearch[kind]='';$('#'+kind+'-search').value='';$('#clear-'+kind+'-search').hidden=true;}
  $('#import-notes').open=false;
- history=[];validationActive=false;lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
+ history=[];lastSaved='';lastSavedKind='';draftComparison=null;clearPreview();
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
  $('#dob')?.removeAttribute('aria-invalid');$('#dob')?.removeAttribute('aria-describedby');$('#issues').hidden=true;$('#issue-list').replaceChildren();$('#handoff').hidden=true;
  $('#save-note').textContent='Save Draft to keep unfinished work. There is no automatic saving.';
@@ -198,23 +206,85 @@ function focusField(input,node){
 function showIssues(){
  if(!model)return [];
  const issues=data.validate(model,{detailed:true});
- for(const input of inputs.values()){input.removeAttribute('aria-invalid');input.removeAttribute('aria-describedby');}
+ const messages=new Map([...inputs.values()].map(input=>[input,[]]));
+ const summaries=new Map();
+ for(const [node,target] of filerFieldTargets){
+  const summary=$(`#filer-summary-${target.group} [data-filer-column="${target.meta.column}"] dd`);
+  if(summary)summaries.set(summary,[]);
+ }
+ for(const cell of document.querySelectorAll('.shared-table td:not(:last-child)'))summaries.set(cell,[]);
  for(const badge of document.querySelectorAll('.issue-badge'))badge.remove();
  const counts=new Map(),list=$('#issue-list');list.replaceChildren();
  issues.forEach((issue,index)=>{
   const input=inputs.get(issue.node),li=document.createElement('li'),button=document.createElement('button');
   button.id='validation-issue-'+index;button.textContent=describeError(issue.message);button.onclick=()=>focusField(input||$('#add-row'),issue.node);li.append(button);list.append(li);
-  if(input){input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),button.id].filter(Boolean).join(' '));
+  if(input){messages.get(input).push(input.matches('button,select[data-institution],select[data-owner]')?describeError(issue.message):inlineError(issue));
    let section=input.closest('details');
    while(section){counts.set(section,(counts.get(section)||0)+1);section=section.parentElement.closest('details');}
    for(const id of ['#institution-section','#owners-section','#separate-section']){const section=input.closest(id);if(section)counts.set(section,(counts.get(section)||0)+1);}
   }
-  const filerTarget=filerFieldTargets.get(issue.node);if(filerTarget){const section=$('#filer-summary-'+filerTarget.group);counts.set(section,(counts.get(section)||0)+1);}
+  const filerTarget=filerFieldTargets.get(issue.node);if(filerTarget){
+   const section=$('#filer-summary-'+filerTarget.group);counts.set(section,(counts.get(section)||0)+1);
+   const summary=section.querySelector(`[data-filer-column="${filerTarget.meta.column}"] dd`);
+   summaries.get(summary)?.push(inlineError(issue));
+   if(summary)summary.parentElement.hidden=false;
+  }
  });
+ for(const row of document.querySelectorAll('.shared-table tbody tr')){
+  for(const {column,message} of row.validationDetails||[])summaries.get(row.cells[column])?.push(message);
+  const edit=row.querySelector('.row-edit');
+  if(edit)messages.set(edit,(row.validationDetails||[]).map(({message})=>message));
+ }
+ for(const [input,errors] of messages)setFieldFeedback(input,errors,{showMessage:!input.matches('button')});
+ for(const [summary,errors] of summaries)setFieldFeedback(summary,errors,{summary:true});
+ for(const [index,{record,branch}] of combinedRecords().entries()){
+  const institution=$(`#rows > tr:nth-child(${index+1}) select[data-institution]`);
+  const institutionIssues=issues.filter(issue=>institutionColumns.some(([,path])=>field(record,path)===issue.node));
+  setFieldFeedback(institution,institutionIssues.map(issue=>{
+   const label=institutionColumns.find(([,path])=>field(record,path)===issue.node)[0];
+   return `${label==='Institution'?'Institution name':label}: ${inlineError(issue)}`;
+  }));
+  if(sharedOwnerBranches.includes(branch))ownerNodes(record,branch).forEach((owner,ownerIndex)=>{
+   const select=$(`#rows > tr:nth-child(${index+1})`).querySelectorAll('select[data-owner]')[ownerIndex];
+   setFieldFeedback(select,issues.filter(issue=>owner.contains(issue.node)&&ownerPaths.some(path=>field(owner,path)===issue.node)).map(issue=>{
+    const path=ownerPaths.find(path=>field(owner,path)===issue.node);
+    return `${labelFor(metaFor('BSAForm/'+branch+'/'+ownerNames[branch]+'/'+path))}: ${inlineError(issue)}`;
+   }));
+  });
+ }
  for(const [section,count] of counts){const badge=document.createElement('span');badge.className='issue-badge';badge.textContent=`${count} issue${count===1?'':'s'}`;(section.querySelector(':scope > summary')||section.querySelector(':scope > h2')||section.querySelector('.filer-group-heading h2')).append(badge);}
  if(filerEdit)refreshFilerEdit();
  $('#issues').hidden=!issues.length;$('#issues-heading').textContent=`${issues.length} field${issues.length===1?'':'s'} to review`;
  return issues;
+}
+function inlineError(issue){
+ const text=issue.message.slice(issue.message.indexOf(':')+1).trim();
+ return text==='required'?'This field is required.':text[0].toUpperCase()+text.slice(1)+'.';
+}
+function setFieldFeedback(target,messages,{summary=false,showMessage=true}={}){
+ if(!target)return;
+ let note=feedback.get(target);
+ if(!note){
+  note=document.createElement('span');note.className='field-error';note.id='field-error-'+nextFeedbackId++;
+  // Keep a stable, quiet live region so corrections do not announce the entire form.
+  if(!summary){note.setAttribute('aria-live','polite');note.setAttribute('aria-atomic','true');}
+  feedback.set(target,note);
+ }
+ const text=[...new Set(messages)].join('\n');
+ if(note.textContent!==text)note.textContent=text;
+ note.hidden=!text||!showMessage;
+ if(summary){
+  target.classList.toggle('has-field-error',!!text);
+  if(note.parentElement!==target)target.append(note);return;
+ }
+ if(target.matches('input,select,textarea')&&target.parentElement&&!target.parentElement.classList.contains('field-control')){
+  const wrapper=document.createElement('div');wrapper.className='field-control';target.before(wrapper);wrapper.append(target);
+ }
+ if(target.nextSibling!==note)target.after(note);
+ if(text)target.setAttribute('aria-invalid','true');else target.removeAttribute('aria-invalid');
+ const described=(target.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==note.id);
+ if(text&&showMessage)described.push(note.id);
+ if(described.length)target.setAttribute('aria-describedby',described.join(' '));else target.removeAttribute('aria-describedby');
 }
 function metaFor(path){return catalog.fields.find(f=>f.xml_path.replaceAll('[*]','')===path);}
 function labelFor(f){return f.column.replaceAll('_',' ').replace(/\b(id|tin|bsa|usd)\b/g,s=>s.toUpperCase()).replace(/^./,s=>s.toUpperCase());}
@@ -359,10 +429,9 @@ function refreshFilerEdit(){
  if(!filerEdit)return;
  updateConditions();
  $('#filer-done').disabled=!pendingFilerChanges();
- const issues=validationActive?data.validate({...model,root:filerEdit.root},{detailed:true}):[];
+ const issues=data.validate({...model,root:filerEdit.root},{detailed:true});
  for(const [node,target] of filerEntries(filerEdit.group)){
-  const input=inputs.get(node);input?.removeAttribute('aria-invalid');
-  if(issues.some(issue=>issue.node===field(filerEdit.root,target.path)))input?.setAttribute('aria-invalid','true');
+  setFieldFeedback(inputs.get(node),issues.filter(issue=>issue.node===field(filerEdit.root,target.path)).map(inlineError));
  }
 }
 function pendingFilerChanges(){return !!filerEdit&&filerEntries(filerEdit.group).some(([node,target])=>node.textContent!==value(filerEdit.root,target.path));}
@@ -371,7 +440,7 @@ function pendingSharedChanges(){return !!sharedEdit&&sharedEdit.paths.some(path=
 function openFilerEditor(group,path){
  // Choosing another group discards the previous group's staged values.
  if(filerEdit?.group!==group)filerEdit={group,root:model.root.cloneNode(true)};
- filerTable();if(validationActive)showIssues();updateProgress();
+ filerTable();showIssues();updateProgress();
  const dialog=$('#filer-editor');if(!dialog.open)dialog.showModal();
  $('#filer-edit-fields').scrollTop=0;
  const target=path?[...filerFieldTargets].find(([,target])=>target.path===path):null;
@@ -386,7 +455,7 @@ function closeFilerEditor({save=false,focus=true}={}){
  if(save&&edited){checkpoint();for(const [node,target] of entries)node.textContent=value(filerEdit.root,target.path);}
  filerEdit=null;$('#filer-editor').close();
  if(save&&edited){changed();renderTable({preserveView:true});setStatus('Filer details saved.');}
- else{filerTable();updateConditions();if(validationActive)showIssues();updateProgress();}
+ else{filerTable();updateConditions();showIssues();updateProgress();}
  if(focus)document.querySelector(`[data-edit-filer="${group}"]`)?.focus({preventScroll:true});
 }
 $('#filer-cancel').onclick=()=>closeFilerEditor();
@@ -481,8 +550,21 @@ function ownerTable(container){sharedTable(container,'owner');}
 function linkedRecords(kind,row){
  return combinedRecords().filter(({record})=>kind==='institution'?accountInstitution.get(record)===row:ownerNodes(record).some(node=>ownerLinks.get(node)===row));
 }
+function sharedValidator(kind){
+ // A small schema record applies the report rules to staged and unattached rows.
+ const local=data.createModel(blankXml,catalog),account=records(local,kind==='institution'?branches[0]:jointBranch)[0];
+ field(account,'MaximumAccntUnkn').textContent='X';
+ const record=kind==='institution'?account:child(account,ownerNames[jointBranch]);
+ const paths=kind==='institution'?institutionColumns.map(([,path])=>path):ownerPaths;
+ return values=>{
+  for(const path of paths)field(record,path).textContent=values[path];
+  const issues=data.validate(local,{detailed:true});
+  return new Map(paths.map(path=>[path,issues.filter(issue=>issue.node===field(record,path)).map(inlineError)]));
+ };
+}
 function sharedTable(container,kind){
  const rows=kind==='institution'?institutions:owners,table=document.createElement('table');table.className='shared-table';
+ const validateRow=sharedValidator(kind);
  const query=sharedSearch[kind].trim().toLowerCase();let visible=0;
  const head=table.createTHead().insertRow(),body=table.createTBody();
  const labels=kind==='institution'?['Institution','Address','Country','Accounts','']:['Owner','Tax ID','Address','Accounts',''];
@@ -496,6 +578,12 @@ function sharedTable(container,kind){
   values.forEach((text,index)=>{const td=tr.insertCell();td.textContent=text;td.dataset.label=labels[index];});
   const td=tr.insertCell(),edit=document.createElement('button');edit.type='button';edit.className='row-edit';edit.textContent='✎';edit.setAttribute('aria-label',`Edit ${kind} ${index+1}`);edit.dataset.editKind=kind;edit.dataset.index=String(index);
   edit.onclick=()=>openRecordEditor(kind,index);td.append(edit);
+  tr.validationDetails=[...validateRow(row)].flatMap(([path,errors])=>{
+   const column=kind==='institution'?(path==='FinInstName'?0:path==='Address/Country'?2:1):
+    (path==='TIN'||path==='TINTYPEU'?1:path.startsWith('Address/')?2:0);
+   const label=kind==='institution'?institutionColumns.find(([,p])=>p===path)[0]:labelFor(metaFor('BSAForm/'+jointBranch+'/PrincipalJointOwner/'+path));
+   return errors.map(error=>({column,message:`${label}: ${error}`}));
+  });
   const targets=kind==='institution'?linked.map(({record})=>record):sharedOwnerNodes().filter(node=>ownerLinks.get(node)===row);
   for(const target of targets)for(const path of kind==='institution'?institutionColumns.map(([,path])=>path):ownerPaths){
    const node=field(target,path);inputs.set(node,edit);sharedFieldTargets.set(node,{kind,index,path});
@@ -518,16 +606,20 @@ function openRecordEditor(kind,index,focusPath,{selectRecord,focusLabel}={}){
  $('#record-title').textContent=`${isNew?'Add':'Edit'} ${kind}${isNew?'':' '+(index+1)}`;
  $('#record-note').textContent=selectRecord?'Add and select attaches this record to the account. Done in the account editor saves it; Cancel discards it.':linked.length?`Saving updates ${linked.length} linked account${linked.length===1?'':'s'}.`:'This record can be selected from account details.';
  $('#record-form button[type=submit]').textContent=selectRecord?'Add and select':'Save changes';
- const issues=validationActive?data.validate(model,{detailed:true}):[];
+ const validatePending=sharedValidator(kind);
+ const refresh=()=>{
+  const errors=validatePending(pending);
+  for(const [path,input] of controls)setFieldFeedback(input,errors.get(path));
+ };
  for(const path of paths){
   const meta=metaFor('BSAForm/'+(kind==='institution'?branches[0]+'/'+path:jointBranch+'/PrincipalJointOwner/'+path));
   const label=kind==='institution'?institutionColumns.find(entry=>entry[1]===path)[0]:labelFor(meta);
   const node=document.createElement('value');node.textContent=pending[path];
-  const input=control(node,meta,kind==='institution'?`Institution ${label==='Institution'?'name':label.toLowerCase()} ${position+1}`:`Owner ${position+1} ${label}`,text=>{pending[path]=text;updateProgress();},{defer:true});
+  const input=control(node,meta,kind==='institution'?`Institution ${label==='Institution'?'name':label.toLowerCase()} ${position+1}`:`Owner ${position+1} ${label}`,text=>{pending[path]=text;refresh();updateProgress();},{defer:true});
   const tr=table.insertRow(),th=document.createElement('th');th.scope='row';th.textContent=label;tr.append(th);const td=tr.insertCell();td.append(input);if(input.choiceCaption)td.append(input.choiceCaption);controls.set(path,input);
-  if(issues.some(issue=>sharedFieldTargets.get(issue.node)?.kind===kind&&sharedFieldTargets.get(issue.node)?.index===index&&sharedFieldTargets.get(issue.node)?.path===path))input.setAttribute('aria-invalid','true');
  }
  $('#record-fields').replaceChildren(table);
+ refresh();
  const close=()=>{sharedEdit=null;dialog.close();$('#record-fields').replaceChildren();dialog.oncancel=null;$('#record-form').onsubmit=null;$('#record-remove').onclick=null;$('#record-cancel').onclick=null;};
  const returnFocus=()=>{
   if(focusLabel){$('#account-dialog').querySelector(`[aria-label="${focusLabel}"]`)?.focus({preventScroll:true});return;}
@@ -705,7 +797,7 @@ function renderTable({preserveView=false}={}){
  if(preserveView){
   [...document.querySelectorAll('#filer-fields,#institution-scroll,#owners-scroll,#grid-scroll')].forEach((n,i)=>{if(scrolls[i]){n.scrollLeft=scrolls[i].left;n.scrollTop=scrolls[i].top;}});
  }
- updateConditions();if(validationActive)showIssues();updateProgress();
+ updateConditions();showIssues();updateProgress();
  if(focused&&$('#account-dialog').open)[...document.querySelectorAll('#account-dialog [aria-label]')].find(el=>el.getAttribute('aria-label')===focused)?.focus({preventScroll:true});
 }
 function showComparison(result){
@@ -733,7 +825,7 @@ function showExportResult(result,{stage}={}){
 async function buildDraft(){
  if(!withinRecordLimits())throw Error('Remove records above the supported limit before exporting.');
  draftBlob=null;draftComparison=null;
- validationActive=true;const errors=showIssues().map(issue=>issue.message);if(errors.length)throw Error(errors.slice(0,12).map(describeError).join('\n')+(errors.length>12?`\nPlus ${errors.length-12} more fields to review.`:''));
+ const errors=showIssues().map(issue=>issue.message);if(errors.length)throw Error(errors.slice(0,12).map(describeError).join('\n')+(errors.length>12?`\nPlus ${errors.length-12} more fields to review.`:''));
  const bytes=await fillBlankTemplate(PDFLib,blank,data.serialize(model),{restoreUnboundDob:true,restoreAllAddresses:true});
  const blob=new Blob([bytes],{type:'application/pdf'});
  const decoded=await data.readPdf(new Uint8Array(await blob.arrayBuffer()),reference),result=showComparison(data.comparePdfData(model.root,decoded));
@@ -850,12 +942,12 @@ $('#add-row').onclick=()=>addAccount(branches[0],synthetic);
 $('#add-owner').onclick=()=>openRecordEditor('owner');
 $('#add-institution').onclick=()=>openRecordEditor('institution');
 for(const kind of ['institution','owner']){
- const refresh=()=>{sharedTable($('#'+(kind==='institution'?'institution-scroll':'owners-scroll')),kind);if(validationActive)showIssues();};
+ const refresh=()=>{sharedTable($('#'+(kind==='institution'?'institution-scroll':'owners-scroll')),kind);showIssues();};
  $('#'+kind+'-search').oninput=e=>{sharedSearch[kind]=e.target.value;refresh();};
  $('#clear-'+kind+'-search').onclick=()=>{sharedSearch[kind]='';$('#'+kind+'-search').value='';refresh();$('#'+kind+'-search').focus();};
 }
 $('#apply').onclick=()=>runAction(async()=>{await regenerate();ledger.showPreview();});
-$('#check-report').onclick=()=>{validationActive=true;const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Select Save Final to download your unsigned PDF when ready.');if(issues.length){ledger.show('review');$('#issues').scrollIntoView({block:'start'});}};
+$('#check-report').onclick=()=>{const issues=showIssues();updateProgress();setStatus(issues.length?`${issues.length} fields to review. Select an issue to open its field.`:'Required fields are complete. Select Save Final to download your unsigned PDF when ready.');if(issues.length){ledger.show('review');$('#issues').scrollIntoView({block:'start'});}};
 $('#save-work').onclick=()=>runAction(saveWork);
 $('#undo').onclick=()=>{const saved=history.pop();if(!saved)return;model=data.importData(data.createModel(blankXml,catalog),data.business(data.xml(saved.xml)),{preserveValues:true});initializeInstitutions(saved.institutions);initializeOwners(saved.owners);synthetic=saved.synthetic;$('#notices').textContent=saved.notices;
  restoreRecordState(saved);previousValues=new Map(saved.previousValues||[]);
