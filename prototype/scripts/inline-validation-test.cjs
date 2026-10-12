@@ -18,13 +18,13 @@ const {filerControl}=require('./filer-test-utils.cjs');
   const snapshot=()=>page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());});
   const feedback=async(control,pattern)=>{
    assert.equal(await control.getAttribute('aria-invalid'),'true');
-   const note=await control.evaluate(el=>document.getElementById(el.getAttribute('aria-describedby'))?.textContent);
+   const note=await control.evaluate(el=>(el.getAttribute('aria-describedby')||'').split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join('\n'));
    assert.match(note,pattern);
    assert(await control.locator('..').locator('.field-error:not([hidden])').isVisible());
   };
   const clear=async control=>{
    assert.equal(await control.getAttribute('aria-invalid'),null);
-   assert.equal(await control.getAttribute('aria-describedby'),null);
+   assert.equal(await control.getAttribute('aria-describedby'),await control.evaluate(el=>el.countryDescriptionId||null));
    assert.equal(await control.locator('..').locator('.field-error:not([hidden])').count(),0);
   };
   await page.goto(origin);await page.waitForFunction(()=>window.experiment);await page.evaluate(()=>experiment.generate(3));

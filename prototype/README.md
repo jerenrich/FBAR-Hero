@@ -124,6 +124,12 @@ Run `node prototype/scripts/validation-rules-test.cjs` for trusted country and s
 
 ## Save and resume unfinished work
 
+Country fields accept a country name or an FBAR code and suggest matching names with their codes. Use the arrow keys and Enter or select a suggestion. The same autocomplete is available for filer addresses, foreign ID issuing countries, institutions, owners and preparers. Summaries and account lists show the country name alongside its code; institution and owner searches also match those names.
+
+`pdfjs/irs-country-codes.mjs` contains a static copy of all 259 entries from the [IRS country codes table](https://www.irs.gov/e-file-providers/country-codes), retrieved October 12, 2026. Names from that table provide additional search terms. **IRS and FBAR codes differ**: the IRS table uses UK for the United Kingdom, AS for Australia and GM for Germany, while the trusted FBAR template requires GB, AU and DE. Autocomplete offers only countries from the trusted FBAR template and writes its codes to report data and PDFs. IRS entries without a matching FBAR country are not offered. Each country field has an expandable Country code reference with a direct link to the IRS table and an explanation of the difference. No runtime lookup is required.
+
+Run `node prototype/scripts/country-input-test.cjs` for country selection, code-system differences, staged editing, validation links, keyboard controls, offline use, narrow screens, and PDF save and reopen. Set `FBAR_TEST_BROWSER` to a Chromium executable path if Google Chrome is not installed.
+
 **Save Final** checks required fields and downloads an unsigned PDF without editor metadata. Review, validate and sign it in Adobe Reader before filing.
 
 Both **Save Draft** and **Save Final** include the report's four digit reporting year in the filename, for example `FBAR-work-2025.pdf` and `FBAR-unsigned-draft-2025.pdf`. An unfinished draft without a valid year keeps the filename without a year.

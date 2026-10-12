@@ -3,6 +3,7 @@ import {fillBlankTemplate,inspectXfa,addressRules} from '/xfa-packet-writer.mjs'
 import * as data from './data-model.mjs';
 import {createLedger} from './ledger-ui.mjs';
 import {restorePreviewValues} from './preview-values.mjs';
+import {countryOptions,countryDisplay,createCountryInput} from './country-input.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/build/pdf.worker.mjs';
 const $=s=>document.querySelector(s),status=$('#status'),pages=$('#pages');
 const diagnosticMode=new URLSearchParams(location.search).get('diagnostics')==='1';
@@ -18,6 +19,7 @@ const accountOrder=new WeakMap();let nextAccountOrder=0;
 let accountEdit=null,previousValues=new Map();
 let filerEdit=null,filerFieldTargets=new Map();
 let sharedEdit=null;
+let countries=[];
 const filerGroups=[
  ['Identity',['filer_type','filer_type_other_description','first_name','last_name_or_organization_name','middle_name','suffix','date_of_birth']],
  ['Tax ID and address',['tax_id','tax_id_type','foreign_id_type','foreign_id_other_description','foreign_id_number','foreign_id_issuing_country','street_address','city','state_province','postal_code','country_code']],
@@ -45,7 +47,7 @@ const ledger=createLedger(()=>{
   filer:[value(model.root,'FilerInformation/FirstName'),value(model.root,'FilerInformation/LastNameOrNameOfOrg')].filter(Boolean).join(' '),
   institutions:institutions.length,issues:issues.length,
   accounts:combinedRecords().map(({record,branch})=>({
-   name:value(record,'FinInstName'),number:value(record,'AccntNumber'),country:value(record,'Address/Country'),
+   name:value(record,'FinInstName'),number:value(record,'AccntNumber'),country:countryDisplay(value(record,'Address/Country'),countries),
    category:categoryLabels[branch],amount:formatCurrency(value(record,'MaximumAccntValue')),
    unknown:value(record,'MaximumAccntUnkn')==='X',empty:!data.populated(record),
    issues:issues.filter(issue=>record.contains(issue.node)).length,controls:accountControls.get(record),
@@ -65,6 +67,7 @@ async function assets(){
  const bytes=new Uint8Array(pdf),{packets}=await inspectXfa(PDFLib,bytes);
  reference=packets.template.bytes;blankXml=new TextDecoder().decode(packets.datasets.bytes);
  catalog={...c,addressRules:addressRules(new TextDecoder().decode(reference))};blank=bytes;
+ countries=countryOptions(catalog.addressRules.countries);
 }
 function changed(){
  if(accountEdit){$('#account-error').hidden=true;updateConditions();showIssues();updateProgress();return;}
@@ -334,6 +337,10 @@ function currencyInput(input){
  return raw;
 }
 function control(node,meta,label,onValue,{defer=false}={}){
+ if(/\/(Country|IssueCountry)$/.test(meta?.xml_path||'')){
+  const input=createCountryInput(node.textContent,label,countries,text=>{if(!defer)checkpoint();node.textContent=text;onValue?.(text);if(!defer)changed();});
+  if(!defer)inputs.set(node,input);return input;
+ }
  const checkbox=meta?.enum?.some(e=>e.xml_value==='X')&&meta.enum.length===2;
  const dropdown=meta?.enum?.length&&!checkbox;
  const input=document.createElement(dropdown?'select':Number(meta?.value_constraints?.text?.maxChars)>=750?'textarea':'input');
@@ -380,6 +387,7 @@ function filerDisplay(node,meta){
  const text=node.textContent;
  if(meta.enum?.some(e=>e.xml_value==='X'))return text==='X'?'Yes':text?'Unrecognized value: '+text:'No';
  if(!text)return 'Not entered';
+ if(/\/(Country|IssueCountry)$/.test(meta.xml_path))return countryDisplay(text,countries);
  if(meta.enum?.length)return meta.enum.find(e=>e.xml_value===text)?.label||'Unrecognized value: '+text;
  if(meta.column==='date_of_birth'&&/^\d{8}$/.test(text))return `${text.slice(0,2)}/${text.slice(2,4)}/${text.slice(4)}`;
  return text;
@@ -463,6 +471,12 @@ function closeFilerEditor({save=false,focus=true}={}){
 $('#filer-cancel').onclick=()=>closeFilerEditor();
 $('#filer-done').onclick=()=>closeFilerEditor({save:true});
 $('#filer-editor').addEventListener('cancel',event=>{event.preventDefault();closeFilerEditor();});
+for(const dialog of document.querySelectorAll('#filer-editor,#record-dialog,#account-dialog'))dialog.addEventListener('keydown',event=>{
+ if(event.key!=='Tab')return;
+ const controls=[...event.currentTarget.querySelectorAll('input,select,textarea,button,summary,a[href],[tabindex]')].filter(input=>!input.disabled&&input.tabIndex>=0&&input.getClientRects().length&&(!input.closest('details:not([open])')||input.tagName==='SUMMARY'));
+ const index=controls.indexOf(document.activeElement);
+ event.preventDefault();controls[index<0?(event.shiftKey?controls.length-1:0):(index+(event.shiftKey?-1:1)+controls.length)%controls.length]?.focus();
+});
 function removeRecord(node,branch){
  if(branches.includes(branch)&&!accountEdit)ledger.closeAccount();
  checkpoint();
@@ -575,8 +589,9 @@ function sharedTable(container,kind){
   const tr=body.insertRow(),linked=linkedRecords(kind,row);
   const address=[row['Address/Address'],row['Address/City'],row['Address/State'],row['Address/ZIP']].filter(Boolean).join(', ');
   const ownerName=(row.OwnerEntityIndicator==='X'?[row.LastName]:[row.FirstName,row.MiddleName,row.LastName,row.Suffix]).filter(Boolean).join(' ');
-  const values=kind==='institution'?[row.FinInstName||'New institution',address||'Not entered',row['Address/Country']||'Not entered',String(linked.length)]:[ownerName||'New owner',row.TIN||'Not entered',[address,row['Address/Country']].filter(Boolean).join(' · ')||'Not entered',String(linked.length)];
-  tr.hidden=!!query&&!Object.values(row).join(' ').toLowerCase().includes(query);if(!tr.hidden)visible++;
+  const country=countryDisplay(row['Address/Country'],countries);
+  const values=kind==='institution'?[row.FinInstName||'New institution',address||'Not entered',country||'Not entered',String(linked.length)]:[ownerName||'New owner',row.TIN||'Not entered',[address,country].filter(Boolean).join(' · ')||'Not entered',String(linked.length)];
+  tr.hidden=!!query&&![...Object.values(row),country].join(' ').toLowerCase().includes(query);if(!tr.hidden)visible++;
   values.forEach((text,index)=>{const td=tr.insertCell();td.textContent=text;td.dataset.label=labels[index];});
   const td=tr.insertCell(),edit=document.createElement('button');edit.type='button';edit.className='row-edit';edit.textContent='✎';edit.setAttribute('aria-label',`Edit ${kind} ${index+1}`);edit.dataset.editKind=kind;edit.dataset.index=String(index);
   edit.onclick=()=>openRecordEditor(kind,index);td.append(edit);
