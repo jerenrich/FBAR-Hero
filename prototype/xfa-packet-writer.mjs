@@ -133,6 +133,7 @@ export function addressRules(templateXml) {
   };
   const choices=script('StatesAndCountriesJS'),common=script('Common'),bsa=script('BSACommon');
   const countries=JSON.parse(choices.match(/var oCountries = (\[[\s\S]*?\]);/)?.[1]||'null');
+  const foreignIdCountries=JSON.parse(choices.match(/var oNoUSCountriesfxcx\s*=\s*(\[[\s\S]*?\]);/)?.[1]||'null');
   const states=JSON.parse((choices.match(/var oStates\s*=\s*({[\s\S]*?});/)?.[1]||'null').replace(/'([^']+)'\s*:/g,'"$1":'));
   const literal=(text,name)=>{
     const match=text.match(new RegExp('var '+name+'\\s*=\\s*("(?:[^"\\\\]|\\\\.)*")\\s*;'));
@@ -141,8 +142,14 @@ export function addressRules(templateXml) {
   };
   const postalFunction=choices.match(/function countryIsUSCAMX\([^)]*\)\s*\{([\s\S]*?)\n\}/)?.[1]||'';
   const postalRequiredCountries=[...postalFunction.matchAll(/countryValue\s*==\s*"([A-Z]{2})"/g)].map(match=>match[1]);
-  if(!countries?.length||!states||!postalRequiredCountries.length)throw new Error('Invalid trusted address validation data');
-  return {countries,states,postalRequiredCountries,postalPatterns:{
+  const territoryEvent=[...template.getElementsByTagName('*')].find(n=>n.localName==='field'&&n.getAttribute('name')==='CountryIndividual')?.textContent||'';
+  const territoryStates=[...new Set([...territoryEvent.matchAll(/this\.rawValue\s*==\s*"([A-Z]{2}) "/g)].map(m=>m[1]))];
+  if(!countries?.length||!foreignIdCountries?.length||!states||!postalRequiredCountries.length||!territoryStates.length)throw new Error('Invalid trusted address validation data');
+  return {countries,foreignIdCountries,states,territoryStates,postalRequiredCountries,validationPatterns:{
+    date:literal(common,'DATE_REGEX'),amendment:literal(common,'DCN_REGEX'),usTin:literal(common,'SSN_REGEX'),
+    invalidUsTin:literal(bsa,'SSN_REGEX_INVALID'),foreignTin:literal(bsa,'SSN_FOREIGN_REGEX'),invalidForeignTin:literal(bsa,'TIN_FOREIGN_REGEX_INVALID'),
+    phone:literal(bsa,'FULL_PH_REGEX'),invalidPhone:literal(bsa,'PH_REGEX_INVALID'),phoneExtension:literal(bsa,'PH_EXT_REGEX'),
+  },postalPatterns:{
     us:literal(common,'ZIP_REGEX'),usInvalid:literal(common,'ZIP_REGEX_INVALID'),foreign:literal(bsa,'FOREIGN_POSTAL_CODE'),
     institution:literal(bsa,'FOREIGN_POSTAL_CODE'),
   }};
@@ -176,7 +183,7 @@ async function makeDobFormState(xml,templateXml,{restoreUnboundDob,restoreFilerA
   }
   let addressState='',accountState='',extraState='';
   if(restoreFilerAndPartIIAddresses||restoreAllAddresses){
-    const {countries,states}=addressRules(templateXml);
+    const {countries,foreignIdCountries,states,territoryStates,postalRequiredCountries}=addressRules(templateXml);
     const escape=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
     const items=pairs=>[0,1].map(i=>`<items save="${i}">`+pairs.map(pair=>'<text>'+escape(pair[i])+'</text>').join('')+'</items>').join('');
     const countryItems=items([['',''],...countries]);
@@ -186,13 +193,15 @@ async function makeDobFormState(xml,templateXml,{restoreUnboundDob,restoreFilerA
       if(!country&&!state&&!required)return '';
       const label=countries.find(pair=>pair[1]===country)?.[0];
       if(!label)throw new Error('Select a valid country code before export');
-      const choices=states[label]||[];
+      const stateRequired=!!states[label]?.length;
+      const choices=states[label]||(territoryStates.includes(country)?[[label,country]]:[]);
       if(state&&!choices.some(pair=>pair[1]===state))throw new Error('State code does not belong to the selected country');
-      if(required&&choices.length&&!state)throw new Error('Filer state/province is required for the selected country');
+      if(required&&stateRequired&&!state)throw new Error('Filer state/province is required for the selected country');
       // Restore the state the official country exit event would produce. Keep
       // canonical codes in datasets; normalized item values allow label matching.
       return `<field name="${countryField}">${countryItems}</field>`+
-        `<field name="State" access="${choices.length?'open':'nonInteractive'}"><validate nullTest="${required&&choices.length?'error':'disabled'}"/>`+items([['',''],...choices])+'</field>';
+        `<field name="State" access="${stateRequired?'open':'nonInteractive'}"><validate nullTest="${required&&stateRequired?'error':'disabled'}"/>`+items([['',''],...choices])+'</field>'+
+        (required?`<field name="ZIP"><validate nullTest="${postalRequiredCountries.includes(country)?'error':'disabled'}"/></field>`:'');
     }
     addressState='<subform name="NameSub">'+address(filers[0],'CountryIndividual',true)+'</subform>';
     const business=data[0].firstElementChild;
@@ -212,14 +221,19 @@ async function makeDobFormState(xml,templateXml,{restoreUnboundDob,restoreFilerA
       if(direct(filers[0],'PaidPreparer').textContent==='X')extraState+=wrap('Signature',wrap('thirdParty',wrap('CitySub',address(preparer,'Country',true))));
       const foreign=direct(filers[0],'ForeignId'),issue=direct(foreign,'IssueCountry').textContent;
       if(issue){
-        if(!countries.some(pair=>pair[1]===issue))throw new Error('Select a valid foreign ID issuing country');
-        addressState+=wrap('PassportOthersub',`<field name="Country">${countryItems}</field>`);
+        if(!foreignIdCountries.some(pair=>pair[1]===issue))throw new Error('Select a valid foreign ID issuing country');
+        addressState+=wrap('PassportOthersub',`<field name="Country">${items([['',''],...foreignIdCountries])}</field>`);
       }
     }
   }
-  if(!dobState&&!addressState&&!accountState)return null;
+  const direct=(node,name)=>[...node.children].find(n=>n.localName===name);
+  // The official late-reason dropdown updates the narrative only on exit.
+  // Restore its visible/required state for prefilled data without changing scripts.
+  const lateReason=direct(filers[0],'LateFilingReason').textContent;
+  const narrativeState=lateReason==='Z'?'<subform name="Header"><subform name="Narrative" presence="visible"><field name="ExplanationOrDescription"><validate nullTest="error"/></field></subform></subform>':'';
+  if(!dobState&&!addressState&&!accountState&&!narrativeState)return null;
   const checksum=await xfaFormChecksum(templateXml,xml);
-  return `<form checksum="${checksum}" xmlns="http://www.xfa.org/schema/xfa-form/2.8/"><subform name="BSAForm"><subform name="Part1">${dobState}${addressState}</subform>${accountState}${extraState}</subform></form>`;
+  return `<form checksum="${checksum}" xmlns="http://www.xfa.org/schema/xfa-form/2.8/"><subform name="BSAForm">${narrativeState}<subform name="Part1">${dobState}${addressState}</subform>${accountState}${extraState}</subform></form>`;
 }
 
 // XFA's legacy form-state integrity checksum is not a digital signature.

@@ -230,6 +230,15 @@ export function validate(model,{detailed=false}={}){
  const r=model.root,req=(n,path,label=path)=>{if(!value(n,path).trim())add(label,'required',field(n,path));};
  if(recordCount(r)>MAX_RECORDS)add('Accounts',recordLimitMessage,r);
  const addressRules=model.catalog.addressRules;
+ const patterns=addressRules?.validationPatterns;
+ const matches=(pattern,text)=>new RegExp(pattern).test(text);
+ function tin(n,idPath,typePath,label,{filer=false}={}){
+  const text=value(n,idPath),type=value(n,typePath);if(!text||!patterns)return;
+  const us=filer||type==='A'||type==='B';
+  if(us?(!matches(patterns.usTin,text)||matches(patterns.invalidUsTin,text)):
+    (!matches(patterns.foreignTin,text)||matches(patterns.invalidForeignTin,text)))
+   add(label,us?'enter a valid nine digit US tax ID':'enter one to 25 letters or digits for the ID',field(n,idPath));
+ }
  function address(n,label,{required=false,institution=false}={}){
   const a=child(n,'Address');if(!a||!addressRules)return;
   const country=value(a,'Country'),state=value(a,'State'),postal=value(a,'ZIP');
@@ -237,9 +246,10 @@ export function validate(model,{detailed=false}={}){
   if(!required&&!populated(a))return;
   const countryLabel=addressRules.countries.find(pair=>pair[1]===country)?.[0];
   if(country&&!countryLabel)add(label+' country','select a listed country code',child(a,'Country'));
-  const states=countryLabel?addressRules.states[countryLabel]||[]:[];
+  const regularStates=countryLabel?addressRules.states[countryLabel]||[]:[];
+  const states=regularStates.length?regularStates:addressRules.territoryStates?.includes(country)?[[countryLabel,country]]:[];
   if(state&&!states.some(pair=>pair[1]===state))add(label+' state/province','select a listed state/province for the country',child(a,'State'));
-  if(required&&states.length&&!state)req(a,'State',label+' state/province');
+  if(required&&regularStates.length&&!state)req(a,'State',label+' state/province');
   if(required&&addressRules.postalRequiredCountries.includes(country))req(a,'ZIP',label+' ZIP/postal code');
   if(postal){
    const patterns=addressRules.postalPatterns;
@@ -251,21 +261,38 @@ export function validate(model,{detailed=false}={}){
   }
  }
  for(const p of ['EFileSubmissionInformation/FilingName','FilerInformation/CalendarYear','FilerInformation/TypeOfFiler','FilerInformation/LastNameOrNameOfOrg','FilerInformation/Address/Address','FilerInformation/Address/City','FilerInformation/Address/Country','FilerInformation/FIInterestIn25OrMore','FilerInformation/SigAuth25OrMore'])req(r,p);
- if(!/^\d{4}$/.test(value(r,'FilerInformation/CalendarYear')))add('Report year','must be four digits');
+ const year=value(r,'FilerInformation/CalendarYear');
+ if(!/^\d{4}$/.test(year)||(patterns&&!matches(patterns.date,year+'-01-01')))add('Report year','enter a year from 1900 to 2099');
  if(value(r,'FilerInformation/TypeOfFiler')==='A')for(const p of ['FilerInformation/FirstName','FilerInformation/DOB'])req(r,p);
  const dob=value(r,'FilerInformation/DOB');
  if(dob&&!isValidDob(dob))add('FilerInformation/DOB','enter a valid date from 1900 onward');
  address(child(r,'FilerInformation'),'Filer',{required:true});
  const issue=value(r,'FilerInformation/ForeignId/IssueCountry');
- if(issue&&addressRules&&!addressRules.countries.some(pair=>pair[1]===issue))add('FilerInformation/ForeignId/IssueCountry','select a listed country code');
- if(!value(r,'FilerInformation/TIN'))for(const p of ['FilerInformation/ForeignId/ForeignIdType','FilerInformation/ForeignId/IdNumber','FilerInformation/ForeignId/IssueCountry'])req(r,p);
- else if(!/^\d{9}$/.test(value(r,'FilerInformation/TIN')))add('Tax ID','must be nine digits');
- else req(r,'FilerInformation/TINTYPE');
+ if(issue&&addressRules&&!addressRules.foreignIdCountries.some(pair=>pair[1]===issue))add('FilerInformation/ForeignId/IssueCountry','select a listed foreign issuing country code');
+ const foreignType=value(r,'FilerInformation/ForeignId/ForeignIdType');
+ if(!value(r,'FilerInformation/TIN')){
+  req(r,'FilerInformation/ForeignId/ForeignIdType');
+  if(foreignType==='A'||foreignType==='B')for(const p of ['FilerInformation/ForeignId/IdNumber','FilerInformation/ForeignId/IssueCountry'])req(r,p);
+ }else {
+  tin(r,'FilerInformation/TIN','FilerInformation/TINTYPE','Tax ID',{filer:true});req(r,'FilerInformation/TINTYPE');
+  for(const p of ['ForeignIdType','OtherIDDesc','IdNumber','IssueCountry'])if(value(r,'FilerInformation/ForeignId/'+p))add('FilerInformation/ForeignId/'+p,'clear foreign identification when a US tax ID is entered; Reader disables it');
+ }
+ if(['C','D'].includes(value(r,'FilerInformation/TypeOfFiler')))for(const p of ['FirstName','MiddleName','Suffix','DOB'])if(value(r,'FilerInformation/'+p))add('FilerInformation/'+p,'clear this field for a corporation or consolidated report; Reader disables it');
  if(value(r,'FilerInformation/TypeOfFiler')==='E')req(r,'FilerInformation/FilerOther');
+ else if(value(r,'FilerInformation/FilerOther'))add('FilerInformation/FilerOther','clear the other filer description for the selected filer type; Reader disables it');
  if(value(r,'FilerInformation/ForeignId/ForeignIdType')==='Z')req(r,'FilerInformation/ForeignId/OtherIDDesc');
- if(value(r,'FilerInformation/AmendToPriorReports')==='X')req(r,'FilerInformation/DocumentControlNumber');
+ else if(value(r,'FilerInformation/ForeignId/OtherIDDesc'))add('FilerInformation/ForeignId/OtherIDDesc','clear the other ID description for the selected ID type; Reader disables it');
+ if(value(r,'FilerInformation/AmendToPriorReports')==='X'){
+  req(r,'FilerInformation/DocumentControlNumber');
+  const id=value(r,'FilerInformation/DocumentControlNumber');
+  if(id&&!matches(patterns?.amendment||'^\\d{14}$',id))add('FilerInformation/DocumentControlNumber','enter exactly 14 digits');
+ }else if(value(r,'FilerInformation/DocumentControlNumber'))add('FilerInformation/DocumentControlNumber','clear the prior report ID when this is not an amendment; Reader disables it');
  if(value(r,'FilerInformation/LateFilingReason')==='Z')req(r,'LatefilingNarrative/ExplanationOrDescription');
- for(const [flag,count] of [['FIInterestIn25OrMore','totalNumFIAccnts'],['SigAuth25OrMore','totalNumSigAuthAccnts']])if(value(r,'FilerInformation/'+flag)==='A'&&!/^\d{1,4}$/.test(value(r,'FilerInformation/'+count)))add(count,'enter an account count');
+ else if(value(r,'LatefilingNarrative/ExplanationOrDescription'))add('LatefilingNarrative/ExplanationOrDescription','clear the explanation when the late filing reason is not Other; the form hides it');
+ for(const [flag,count] of [['FIInterestIn25OrMore','totalNumFIAccnts'],['SigAuth25OrMore','totalNumSigAuthAccnts']])if(value(r,'FilerInformation/'+flag)==='A'){
+  const number=value(r,'FilerInformation/'+count);
+  if(!/^\d{1,4}$/.test(number)||Number(number)<25)add(count,'enter an account count from 25 to 9999');
+ }else if(value(r,'FilerInformation/'+count))add(count,'clear the count when 25 or more is not selected; Reader disables it');
  for(const branch of branches)for(const [i,a] of records(model,branch).entries()){
   if(!populated(a))continue;
   const label=`${branch} ${i+1}`;
@@ -275,7 +302,7 @@ export function validate(model,{detailed=false}={}){
   if(unknown&&max)add(label,'clear the maximum value when unknown is selected',field(a,'MaximumAccntValue'));
   if(!unknown&&!/^\d{1,15}$/.test(max))add(label,'maximum value must be whole US dollars with at most 15 digits',field(a,'MaximumAccntValue'));
   if(value(a,'AccountType')==='Z')req(a,'OtherDesc',label+' other description');
-  if(branch==='FinAcctOwnedJointly'&&!/^[1-9]\d{0,2}$/.test(value(a,'NOofJointOwners')))add(label,'enter the number of joint owners excluding the filer',field(a,'NOofJointOwners'));
+  if(branch==='FinAcctOwnedJointly'&&(!/^\d{1,3}$/.test(value(a,'NOofJointOwners'))||Number(value(a,'NOofJointOwners'))<1))add(label,'enter the number of joint owners excluding the filer',field(a,'NOofJointOwners'));
   const owner=ownerNames[branch];
   if(owner)for(const o of [...a.children].filter(n=>n.localName===owner)){
    req(o,owner==='ConsolidateAcctOwner'?'CorporateName':'LastName',label+' owner name');
@@ -283,6 +310,7 @@ export function validate(model,{detailed=false}={}){
    address(o,label+' owner');
    req(o,owner==='ConsolidateAcctOwner'?'TINTYPE':'TINTYPEU',label+' owner ID type');
    if(value(o,'TINTYPEU')!=='D')req(o,'TIN',label+' owner ID');
+   tin(o,'TIN',owner==='ConsolidateAcctOwner'?'TINTYPE':'TINTYPEU',label+' owner ID');
   }
  }
  const hasAccounts=branches.some(b=>records(model,b).some(populated));
@@ -292,6 +320,22 @@ export function validate(model,{detailed=false}={}){
   const preparer=child(r,'PaidPreparerInformation');
   for(const p of ['LastName','FirstName','TIN','TINTYPE','TelephoneNumber','Address/Address','Address/City','Address/Country'])req(preparer,p,'Preparer '+p);
   address(preparer,'Preparer',{required:true});
+  tin(preparer,'TIN','TINTYPE','Preparer TIN');
+  if(value(preparer,'SelfEmployed')!=='X'){
+   for(const p of ['FirmName','EIN','EINType'])req(preparer,p,'Preparer '+p);
+   tin(preparer,'EIN','EINType','Preparer EIN');
+  }
+  const phone=value(preparer,'TelephoneNumber'),extension=value(preparer,'TelephoneExt');
+  if(patterns&&phone&&(!matches(patterns.phone,phone)||matches(patterns.invalidPhone,phone)))add('Preparer TelephoneNumber','enter five to 16 digits for the phone number',field(preparer,'TelephoneNumber'));
+  if(patterns&&extension&&!matches(patterns.phoneExtension,extension))add('Preparer TelephoneExt','enter one to six digits for the extension',field(preparer,'TelephoneExt'));
+  if(value(r,'SubmissionInformation/SignatureTitle'))add('SubmissionInformation/SignatureTitle','clear the filer title when a third party preparer is selected; Reader disables it');
+ }else {
+  const preparer=child(r,'PaidPreparerInformation');
+  if(populated(preparer)){
+   const node=[...preparer.querySelectorAll('*')].find(n=>!n.children.length&&n.textContent);
+   const parts=[];for(let p=node;p&&p!==preparer;p=p.parentElement)parts.unshift(p.localName);
+   add('Preparer '+parts.join('/'),'clear preparer details or select third party preparer; Reader disables these details',node);
+  }
  }
  return errors;
 }

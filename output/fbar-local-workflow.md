@@ -53,7 +53,27 @@ The existing 1/3/20-account PDF.js rendering tests still produced 7/7/13 pages; 
 
 Startup safeguards, compatible import rejection, the complete offline account/owner/preparer workflow, existing UI regression checks, server/input checks and independent exported-PDF verification also passed. The synthetic-data policy checker now examines work-file JSON datasets as well as XML and PDF fixtures; all 56 checked datasets passed. No native signing flow was changed or rerun for this usability update.
 
-## Limits and further qualification
+## Official form scenario audit — October 13, 2026
+
+The audit compares the app with the unchanged pinned public form (SHA-256 `21b8aed683a7a770dc7cba65ec6d4221fe7c1be50040786d894d02e34fbd571b`), including its `Common`, `BSACommon`, `FFBAR`, and `StatesAndCountriesJS` scripts. All cases use invented ASCII letters, digits and spaces. The audit never reads a personal PDF, signs a form, or submits a filing.
+
+The matrix has **73 cases: 40 checked exports and 33 rejected inputs**. It covers known and unknown amendment identifiers; 25-or-more count boundaries, summary-only reports, and 25 detailed interest/authority accounts; passports, foreign TINs and Other identification; joint and authority owners with US, foreign and unknown IDs; self-employed, firm, foreign and PTIN preparers; US, Canada, Mexico, UK and Puerto Rico addresses; corporation, partnership, Other and consolidated filers; repeated consolidated owners; and late-filing explanations. Browser checks exercise the real checked export path, data reconciliation, template preservation, saved-state checksums and the conditional Reader instructions. Native Reader checks cover 72 generated PDFs; the unsupported US foreign-ID issuer is rejected by the writer before Reader. Positive cases preserve every populated input through unsigned save/reopen, including the 31-page authority case. Eleven negative controls demonstrate Reader changing or clearing supplied values that the app now blocks at Save Final.
+
+Corrections from this audit:
+
+- Amendment identifiers must contain exactly 14 digits; the unknown identifier of fourteen zeroes remains supported. Reporting years follow the official date pattern, and selected 25-or-more counts must range from 25 to 9999. A positive joint-owner count may retain leading zeroes.
+- Filer, owner, preparer and preparer-firm IDs use the appropriate official US/foreign patterns and forbidden-value checks. Preparer firm details are required when self-employed is not selected; telephone numbers and extensions use the official patterns.
+- Foreign-ID issuers use the form's dedicated country list rather than the general address list. Other identification requires its description without incorrectly requiring a number and issuing country. Territory state codes are accepted and restored correctly.
+- Save Final rejects stale values that Reader disables or hides: inactive amendment IDs and counts, foreign identification alongside a US TIN, individual identity fields on corporation/consolidated filers, inactive Other descriptions, disabled preparer details, and a filer title when a preparer is selected. Save Draft retains these entries for editing; they are never silently discarded by the editor.
+- The saved form state now makes a late-filing Other explanation visible and required, matching the official dropdown's exit event. The government template, schema and scripts remain unchanged.
+
+**Reader action for a preparer without a postal code:** outside the US/Canada/Mexico, the official country exit event makes the preparer postal code optional. The official preparer initialization makes it required again after an unsigned reopen. Selecting the same country does not count as a change. The native test exercises the original enter/exit events while switching countries and restoring the correct country, then verifies valid, unchanged data. The app shows this exact step in Review and the export popup: select a different preparer country in Reader, restore the correct country and review the address, then validate and sign before saving. This is an explicit handoff requirement rather than a change to the government scripts.
+
+Reproduce with `node prototype/scripts/scenario-audit-test.cjs`, then `python3 prototype/scripts/adobe_scenario_test.py` on macOS with desktop Reader and the Python dependencies installed. Reports and synthetic PDFs are in ignored `prototype/results/scenario-audit/`. The native runner can resume only when a case's source PDF hash and expected behavior match its recorded result. Existing export/reconciliation, save/reopen, import, country, account, inline feedback, Ledger and preview checks also pass. The synthetic data policy checker covers the regenerated artifacts.
+
+These results establish targeted compatibility with this template and Reader version, including the documented country step. They do not establish government acceptance for every scenario, exhaustive visual fidelity, or validity of every possible real-world filing. Automated QA never submits a filing.
+
+## Remaining qualification
 
 Reader signing is verified for the 20-account synthetic writer fixture above. A later automation attempt to repeat signing on an imported draft was unreliable when multiple Adobe documents and modal dialogs were active; it did not yield a second verified signed artifact. The branch results above are unsigned native validation/save checks. Use the normal desktop acknowledgment flow, rather than programmatic signing, in the product.
 

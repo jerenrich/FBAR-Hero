@@ -123,7 +123,14 @@ function updateProgress(){
  }
  $('#undo').disabled=!!filerEdit||!history.length;$('#close-account').disabled=!accountEdit||draftSnapshot()===accountEdit.snapshot;
  for(const id of ['save-work','apply','draft','new','import-file'])$('#'+id).disabled=!!filerEdit;
+ $('#preparer-country-help').hidden=!needsPreparerCountrySelection();
  ledger.update();
+}
+function needsPreparerCountrySelection(){
+ return !!model&&value(model.root,'FilerInformation/PaidPreparer')==='X'&&
+  !value(model.root,'PaidPreparerInformation/Address/ZIP')&&
+  !!value(model.root,'PaidPreparerInformation/Address/Country')&&
+  !catalog.addressRules.postalRequiredCountries.includes(value(model.root,'PaidPreparerInformation/Address/Country'));
 }
 function ask(title,message,actions){
  const dialog=$('#action-dialog'),previous=document.activeElement;
@@ -338,7 +345,8 @@ function currencyInput(input){
 }
 function control(node,meta,label,onValue,{defer=false}={}){
  if(/\/(Country|IssueCountry)$/.test(meta?.xml_path||'')){
-  const input=createCountryInput(node.textContent,label,countries,text=>{if(!defer)checkpoint();node.textContent=text;onValue?.(text);if(!defer)changed();});
+  const choices=meta.xml_path.endsWith('/IssueCountry')?countries.filter(c=>catalog.addressRules.foreignIdCountries.some(pair=>pair[1]===c.code)):countries;
+  const input=createCountryInput(node.textContent,label,choices,text=>{if(!defer)checkpoint();node.textContent=text;onValue?.(text);if(!defer)changed();});
   if(!defer)inputs.set(node,input);return input;
  }
  const checkbox=meta?.enum?.some(e=>e.xml_value==='X')&&meta.enum.length===2;
@@ -833,7 +841,7 @@ function showExportResult(result,{stage}={}){
  $('#export-title').textContent=title[stage];
  $('#export-summary').textContent=reconciliationText(result);
  const messages={automatic:'The PDF matches your entries. Check your browser downloads; the remaining steps are in Review.',blocked:'The generated PDF differs from your entries. No PDF download was requested.',comparison:'Compared with this report. Signatures and submission are not checked.'};
- $('#export-message').textContent=messages[stage];
+ $('#export-message').textContent=messages[stage]+(stage==='automatic'&&needsPreparerCountrySelection()?' '+$('#preparer-country-help').textContent:'');
  $('#export-differences').textContent=result.differences.map((difference,index)=>
   `${index+1}. ${difference.kind}: ${describePath(difference.field)}`).join('\n');
  $('#export-difference-section').hidden=!result.differences.length;

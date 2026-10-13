@@ -82,7 +82,7 @@ const plain = value => {assert.match(value,/^[A-Za-z0-9 ]*$/);return value;};
   assert.match(await page.locator('.register-table tbody tr').nth(1).textContent(),/UPDATED BANK/);
   // Invalid institution data must reveal the shared record, not a different account.
   await nav('institutions');await page.getByRole('button',{name:'Edit institution 2',exact:true}).click();
-  await input('Institution country 2').fill('');await page.locator('#record-form button[type=submit]').click();
+  await input('Institution country 2').fill('');await input('Institution country 2').press('Tab');await page.locator('#record-form button[type=submit]').click();
   await nav('review');await page.locator('#check-report').click();
   await page.locator('#issue-list button').filter({hasText:'Separately owned accounts 2 · Institution country code'}).click();
   assert(await page.locator('#panel-institutions').isVisible());
