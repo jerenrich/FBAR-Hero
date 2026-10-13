@@ -159,6 +159,7 @@ const {createServer}=require('../pdfjs/server.cjs');
    });
    try{
     const initial=await send(blank);if(initial.error)return {initialError:initial.error};
+    if(!initial.packets?.datasets)throw Error('Legacy worker request received an unexpected startup message');
     let accepted=0;
     for(const bytes of documents){
      const result=await send(bytes);
@@ -185,7 +186,7 @@ const {createServer}=require('../pdfjs/server.cjs');
 
   // Simulate a parser that never returns; the real watchdog must terminate it.
   const stalled=await browser.newContext();
-  await stalled.route('**/pdfjs/pdf-reader-worker.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{while(true){}};'}));
+  await stalled.route('**/pdfjs/pdf-reader-worker.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=({data})=>{if(data.initialize)self.postMessage({ready:true});else while(true){}};'}));
   const stalledPage=await stalled.newPage();await stalledPage.goto(origin);await stalledPage.waitForFunction(()=>window.experiment);
   const timed=await stalledPage.evaluate(async()=>{
    const {readPackets}=await import('/pdfjs/pdf-reader.mjs');let ticks=0;const timer=setInterval(()=>ticks++,50);

@@ -201,9 +201,15 @@ for(const method of ['addEntry','addDeletedEntry']){
   xrefSections[method]=function(...args){chargeObjects();return add.apply(this,args);};
 }
 self.onmessage=async({data:bytes})=>{
+  let inspectXfa;
+  try{({inspectXfa}=await writer);}catch{
+    self.postMessage({error:'The local PDF reader could not finish loading. Check your connection and retry.',recycle:true});return;
+  }
+  // Respond only to an explicit handshake so an already-open older editor
+  // still receives exactly one packet response when it sends PDF bytes.
+  if(bytes?.initialize===true){self.postMessage({ready:true});return;}
   allocated=0;objectData=0;objectCount=0;objectDepth=0;poolExceeded=false;
   try{
-    const {inspectXfa}=await writer;
     const {pdf,packets}=await inspectXfa(PDFLib,bytes,{packetNames:new Set(['template','datasets','form']),strict:true});
     const result=Object.create(null);
     for(const [name,packet] of Object.entries(packets)){
@@ -221,3 +227,6 @@ self.onmessage=async({data:bytes})=>{
     self.postMessage({packets:result},Object.values(result).map(packet=>packet.bytes.buffer));
   }catch(error){self.postMessage({error:poolExceeded?'PDF parser cache exceeds the supported size limit. Retry the file to restart the reader.':error.message||'Unsupported PDF.',recycle:poolExceeded});}
 };
+// A dependency may fail before a request arrives; the handler reports it and
+// requests recycling when the caller starts initialization or parsing.
+writer.catch(()=>{});

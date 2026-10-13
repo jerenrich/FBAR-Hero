@@ -90,6 +90,8 @@ The matrix now contains 108 cases: 59 checked exports and 49 rejected inputs. Al
 
 These checks still use the pinned public template. Full calendar birth dates are supported; the legacy form's partial-date special responses are outside the editor's current support. No synthetic filing is submitted, and the tests do not certify every combination of government processing rules.
 
+A separate cold-start regression delayed the reader worker download by 16 seconds and reproduced a valid PDF failing the old 15-second watchdog before parsing began. The reader now allows up to 30 seconds for its trusted dependencies to load, then retains the original 15-second limit for parsing untrusted PDFs. An explicit initialization handshake preserves compatibility with already-open older editors. `reader-startup-test.cjs` checks delayed startup, offline reuse, failed or stalled initialization and successful retries; `security-test.cjs` checks the unchanged parser budgets and termination of a stalled parser. The production smoke test reports the import status if the year-choice dialog does not appear.
+
 ## Remaining qualification
 
 Reader signing is verified for the 20-account synthetic writer fixture above. A later automation attempt to repeat signing on an imported draft was unreliable when multiple Adobe documents and modal dialogs were active; it did not yield a second verified signed artifact. The branch results above are unsigned native validation/save checks. Use the normal desktop acknowledgment flow, rather than programmatic signing, in the product.

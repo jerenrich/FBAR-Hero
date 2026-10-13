@@ -8,6 +8,10 @@ const origin = new URL(process.argv[2] || 'http://127.0.0.1:8788').origin;
 const output = path.resolve(__dirname, '../results/pages');
 const { securityHeaders } = require('../asset-manifest.cjs');
 const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; };
+async function continueImportedYear(page) {
+  try { await page.locator('#continue-year').click({timeout: 50000}); }
+  catch (error) { throw new Error('Import did not reach the year choice: ' + await page.locator('#status').textContent(), {cause: error}); }
+}
 
 (async () => {
   fs.mkdirSync(output, { recursive: true });
@@ -77,7 +81,7 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     await imported.goto(origin + '/pdfjs/index.html');
     await imported.waitForFunction(() => !document.querySelector('#import-file').disabled);
     await imported.locator('#import-file').setInputFiles(pdfPath);
-    await imported.locator('#continue-year').click();
+    await continueImportedYear(imported);
     await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     assert.equal(await imported.locator('#rows tr').count(), 3);
     const comparison = await imported.evaluate(bytes => experiment.comparePdf(new Uint8Array(bytes)), Array.from(fs.readFileSync(pdfPath)));
@@ -91,7 +95,7 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     // Editing and checked export still work offline once runtime assets are warm.
     await context.setOffline(true);
     await imported.locator('#import-file').setInputFiles(workPath);
-    await imported.locator('#continue-year').click();
+    await continueImportedYear(imported);
     await imported.waitForFunction(() => !document.querySelector('#editor').inert);
     const offlineBytes = await imported.evaluate(async () => (await experiment.buildDraft()).length);
     assert(offlineBytes > 0);
