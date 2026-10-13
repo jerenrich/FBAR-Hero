@@ -46,7 +46,7 @@ export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreU
   const encode=s=>new TextEncoder().encode(s);
   // XFA packets are concatenated inside one XDP XML document; a packet must not
   // contain its own XML declaration, even though it parses as standalone XML.
-  const packetXml=datasetsXml.replace(/^\uFEFF/,'').replace(/^\s*<\?xml[^?]*\?>\s*/,'');
+  let packetXml=datasetsXml.replace(/^\uFEFF/,'').replace(/^\s*<\?xml[^?]*\?>\s*/,'');
   const dataDocument=new DOMParser().parseFromString(packetXml,'application/xml');
   const containers=dataDocument.getElementsByTagNameNS('http://www.xfa.org/schema/xfa-data/1.0/','data');
   const business=containers.length===1?containers[0].firstElementChild:null;
@@ -54,6 +54,14 @@ export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreU
   const submitUrls=submission.length===1?[...submission[0].children].filter(n=>n.namespaceURI==='http://www.fincen.gov/bsa/efile-submission-types/2009-01-01'&&n.localName==='SubmitUrl'):[];
   if(dataDocument.getElementsByTagName('parsererror').length||submitUrls.length!==1||submitUrls[0].textContent!==EXPECTED_SUBMIT_URL)
     throw new Error('Missing or unsupported FBAR submission URL. Reopen the PDF in the editor and export a fresh draft.');
+  // Match the pinned template's dd:minOccur=0, dd:nullType=exclude rule and
+  // native Reader serialization. Older fixture and caller datasets can still
+  // contain the schema placeholder; remove it before saving or checksumming.
+  const emptyCounts=[...submission[0].children].filter(n=>n.namespaceURI==='http://www.fincen.gov/bsa/efile-submission-types/2009-01-01'&&n.localName==='NumForms'&&!n.textContent.trim()&&!n.children.length);
+  if(emptyCounts.length){
+    for(const node of emptyCounts)node.remove();
+    packetXml=new XMLSerializer().serializeToString(dataDocument);
+  }
   const xml=encode(packetXml);
   const objects=[{id:ref.objectNumber,generation:ref.generationNumber,body:streamBody(xml)}];
   let nextId=Math.max(priorSize,pdf.context.largestObjectNumber+1);

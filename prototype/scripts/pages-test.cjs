@@ -53,6 +53,22 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     const pdfPath = path.join(output, 'SYNTHETIC-UNSIGNED.pdf');
     await download.saveAs(pdfPath);
     await page.waitForFunction(() => !document.querySelector('#editor').inert);
+    // Verify this deployment's actual downloaded bytes, rather than only UI
+    // reconciliation: an empty optional NumForms caused a filing incompatibility.
+    const submission = await page.evaluate(async bytes => {
+      const dm = await import('/pdfjs/data-model.mjs');
+      const writer = await import('/xfa-packet-writer.mjs');
+      const { packets } = await writer.inspectXfa(PDFLib, new Uint8Array(bytes), { strict: true });
+      const text = key => new TextDecoder().decode(packets[key].bytes);
+      const root = dm.business(dm.xml(text('datasets')));
+      return {
+        emptyCountOmitted: !dm.field(root, 'EFileSubmissionInformation/NumForms'),
+        submitUrl: dm.value(root, 'EFileSubmissionInformation/SubmitUrl'),
+        checksumMatches: await writer.xfaFormChecksum(text('template'), text('datasets')) === dm.xml(text('form')).documentElement.getAttribute('checksum'),
+      };
+    }, Array.from(fs.readFileSync(pdfPath)));
+    assert(submission.emptyCountOmitted && submission.checksumMatches);
+    assert.equal(submission.submitUrl, 'https://bsaefiling.fincen.gov/NoRegFilerUpload');
     assert(await page.locator('#handoff').isVisible());
     assert.match(await page.locator('#comparison').textContent(), /PDF data matches your entries/);
     // A fresh page exercises startup and PDF import without relying on warm assets.
@@ -84,6 +100,6 @@ const plain = value => { assert.match(value, /^[A-Za-z0-9 ]*$/); return value; }
     assert.deepEqual(mutations, []);
     assert.deepEqual(errors, []);
     assert.deepEqual(policyViolations, []);
-    console.log(`PASS ${origin}: headers, private-path 404s, startup, preview, edited export, import, comparison, save/resume and offline export; no external requests, uploads, storage or CSP violations.`);
+    console.log(`PASS ${origin}: headers, private-path 404s, startup, preview, edited export without empty optional count and with valid submission metadata/checksum, import, comparison, save/resume and offline export; no external requests, uploads, storage or CSP violations.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

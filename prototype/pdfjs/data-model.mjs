@@ -60,7 +60,16 @@ export function newRecord(model,branch){
  const template=field(model.schema,branch);if(!template)throw Error('Unknown record type.');return emptyCopy(template);
 }
 export function records(model,branch){return [...model.root.children].filter(n=>n.localName===branch);}
-export function serialize(model){return new XMLSerializer().serializeToString(model.document);}
+export function serialize(model){
+ // The official data description marks NumForms optional with nullType=exclude.
+ // It has no field binding in this individual form, so Reader cannot remove an
+ // empty node we supplied. Keep the schema-shaped editor model for old imports,
+ // but match a native Reader draft by omitting this empty system value on save.
+ const document=model.document.cloneNode(true),root=business(document);
+ const count=field(root,'EFileSubmissionInformation/NumForms');
+ if(count&&!count.textContent.trim())count.remove();
+ return new XMLSerializer().serializeToString(document);
+}
 export function importData(model,source,{preserveValues=false}={}){
  // A tiny repeated element expands to a full schema record and dozens of UI
  // controls. Check the aggregate before cloning any records, including owners.
