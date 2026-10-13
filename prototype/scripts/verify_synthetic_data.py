@@ -16,7 +16,8 @@ def check_data(root, source):
         if not len(node) and node.text and node.text.strip():
             value = node.text
             official_version = path[-2:] == ['EFileSubmissionInformation', 'VersionNumber'] and value == '1.0.2'
-            if not official_version and not re.fullmatch(r'[A-Za-z0-9 ]*', value):
+            official_url = path[-2:] == ['EFileSubmissionInformation', 'SubmitUrl'] and value == 'https://bsaefiling.fincen.gov/NoRegFilerUpload'
+            if not (official_version or official_url) and not re.fullmatch(r'[A-Za-z0-9 ]*', value):
                 failures.append({'file': str(source.relative_to(ROOT)), 'field': '/'.join(path)})
         for child in node:
             visit(child, path)

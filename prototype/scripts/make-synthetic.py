@@ -12,6 +12,10 @@ ET.register_namespace('',FBAR)
 ET.register_namespace('efile','http://www.fincen.gov/bsa/efile-submission-types/2009-01-01')
 ET.register_namespace('common','http://www.fincen.gov/bsa/ucommon-components/2011-06-01')
 schema=ET.parse('prototype/fixtures/blank-datasets.xml').getroot()
+# Preserve the government's routing metadata verbatim, rather than inventing it.
+template=ET.parse('prototype/fixtures/blank-template.xml').getroot()
+TEMPLATE='http://www.xfa.org/schema/xfa-template/3.3/'
+submit_url=next(n for n in template.iter('{'+TEMPLATE+'}field') if n.attrib.get('name')=='SubmitUrl').find('{'+TEMPLATE+'}value/{'+TEMPLATE+'}text').text
 blank=deepcopy(schema.find('{'+DD+'}dataDescription')[0])
 for n in blank.iter(): n.attrib.clear();n.text=None
 
@@ -19,7 +23,8 @@ def child(node,name): return next(n for n in node if n.tag.split('}')[-1]==name)
 def set_value(node,path,value):
     value = str(value)
     official_version = path == 'EFileSubmissionInformation/VersionNumber' and value == '1.0.2'
-    if not official_version and not re.fullmatch(r'[A-Za-z0-9 ]*', value):
+    official_url = path == 'EFileSubmissionInformation/SubmitUrl' and value == submit_url
+    if not (official_version or official_url) and not re.fullmatch(r'[A-Za-z0-9 ]*', value):
         raise ValueError('Synthetic values must contain only ASCII letters, digits and spaces: ' + path)
     for name in path.split('/'):node=child(node,name)
     node.text=value
@@ -32,6 +37,7 @@ def make(count):
         'EFileSubmissionInformation/FilingType':'FBARX',
         'EFileSubmissionInformation/VersionNumber':'1.0.2',
         'EFileSubmissionInformation/SpecificationVersion':'0051',
+        'EFileSubmissionInformation/SubmitUrl':submit_url,
         'FilerInformation/CalendarYear':'2025',
         'FilerInformation/TypeOfFiler':'A',
         'FilerInformation/TIN':'321546789',

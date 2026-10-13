@@ -2,6 +2,8 @@
 
 FBAR Hero is a local editor prototype that exports one tested template and imports compatible prior variants as data only. It supports data-only import, all cataloged input tables, year rollover, checked unsigned export and comparison with a saved PDF. Final review/signing happens in Adobe Reader. All QA fixture data is invented. **Never submit these PDFs. Never pass a personal PDF to the public SDK demo.**
 
+The October 13, 2026 submission metadata fix preserves the official production `SubmitUrl` in new drafts and restores it from the pinned template on import. Earlier exports wrote this field empty, which is consistent with the reported BSA400 reference-only rejection. FinCEN's current Prepare FBAR download was verified to match the bundled blank byte for byte. Reopen an earlier PDF in the updated app, export it again, and validate, sign and save the new PDF in Adobe Reader. `node prototype/scripts/submission-metadata-test.cjs` checks new drafts, import repair, rejection of unsupported export URLs and template preservation using synthetic records with external requests blocked. Government acceptance remains unverified.
+
 Synthetic text values use only ASCII letters, digits and spaces. This user preference is recorded in [AGENTS.md](../AGENTS.md) and applies to new fixtures and negative-test data as well.
 
 The [PDF.js report](../output/fbar-pdfjs-feasibility.md) explains the free draft/preview experiment. The earlier [Foxit resolution report](../output/fbar-export-feasibility.md) covers the commercial signing experiment.

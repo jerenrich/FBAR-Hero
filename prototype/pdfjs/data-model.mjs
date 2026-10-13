@@ -1,6 +1,6 @@
 // Local data-only import. Imported templates, scripts and saved signing state are never executed or copied.
 import {readPackets} from './pdf-reader.mjs';
-import {isValidDob} from '../xfa-packet-writer.mjs';
+import {isValidDob,EXPECTED_SUBMIT_URL} from '../xfa-packet-writer.mjs';
 export const XFA='http://www.xfa.org/schema/xfa-data/1.0/';
 export const FBAR='http://www.fincen.gov/bsa/ffbar/2011-06-01';
 const DD='http://ns.adobe.com/data-description/';
@@ -53,7 +53,7 @@ export function createModel(blankDatasets,catalog){
  for(const a of [...container.attributes])container.removeAttributeNode(a);
  container.replaceChildren(root);child(root,'NoRegContactInformation')?.remove();
  const model={document:d,root,schema,catalog,notices:[]};
- for(const [path,v] of Object.entries({'EFileSubmissionInformation/VersionNumber':'1.0.2','EFileSubmissionInformation/SpecificationVersion':'0051','EFileSubmissionInformation/FilingType':'FBARX'}))field(root,path).textContent=v;
+ for(const [path,v] of Object.entries({'EFileSubmissionInformation/VersionNumber':'1.0.2','EFileSubmissionInformation/SpecificationVersion':'0051','EFileSubmissionInformation/FilingType':'FBARX','EFileSubmissionInformation/SubmitUrl':EXPECTED_SUBMIT_URL}))field(root,path).textContent=v;
  return model;
 }
 export function newRecord(model,branch){
@@ -113,8 +113,12 @@ export function importData(model,source,{preserveValues=false}={}){
  const specification=value(model.root,'EFileSubmissionInformation/SpecificationVersion');
  if(specification&&specification!=='0051')throw Error('Unsupported form data specification.');
  field(model.root,'EFileSubmissionInformation/SpecificationVersion').textContent='0051';
- // A new draft must not inherit any prior attestation or submission routing.
- for(const path of ['SubmissionInformation/SignatureDate','FilerInformation/FilerSignature','EFileSubmissionInformation/SubmitUrl','EFileSubmissionInformation/NumForms']){
+ // Restore routing from our pinned production template, never from an import.
+ const submitUrl=field(model.root,'EFileSubmissionInformation/SubmitUrl');
+ if(submitUrl.textContent!==EXPECTED_SUBMIT_URL)notices.push('Restored the official production submission URL.');
+ submitUrl.textContent=EXPECTED_SUBMIT_URL;
+ // A new draft must not inherit any prior attestation or submission count.
+ for(const path of ['SubmissionInformation/SignatureDate','FilerInformation/FilerSignature','EFileSubmissionInformation/NumForms']){
   const n=field(model.root,path);if(n?.textContent)notices.push(`Cleared prior submission state: ${path}`);if(n)n.textContent='';
  }
  model.notices=notices;return model;

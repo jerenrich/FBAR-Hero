@@ -47,6 +47,13 @@ export async function fillBlankTemplate(PDFLib, original, datasetsXml, {restoreU
   // XFA packets are concatenated inside one XDP XML document; a packet must not
   // contain its own XML declaration, even though it parses as standalone XML.
   const packetXml=datasetsXml.replace(/^\uFEFF/,'').replace(/^\s*<\?xml[^?]*\?>\s*/,'');
+  const dataDocument=new DOMParser().parseFromString(packetXml,'application/xml');
+  const containers=dataDocument.getElementsByTagNameNS('http://www.xfa.org/schema/xfa-data/1.0/','data');
+  const business=containers.length===1?containers[0].firstElementChild:null;
+  const submission=business?[...business.children].filter(n=>n.namespaceURI==='http://www.fincen.gov/bsa/ffbar/2011-06-01'&&n.localName==='EFileSubmissionInformation'):[];
+  const submitUrls=submission.length===1?[...submission[0].children].filter(n=>n.namespaceURI==='http://www.fincen.gov/bsa/efile-submission-types/2009-01-01'&&n.localName==='SubmitUrl'):[];
+  if(dataDocument.getElementsByTagName('parsererror').length||submitUrls.length!==1||submitUrls[0].textContent!==EXPECTED_SUBMIT_URL)
+    throw new Error('Missing or unsupported FBAR submission URL. Reopen the PDF in the editor and export a fresh draft.');
   const xml=encode(packetXml);
   const objects=[{id:ref.objectNumber,generation:ref.generationNumber,body:streamBody(xml)}];
   let nextId=Math.max(priorSize,pdf.context.largestObjectNumber+1);
@@ -234,3 +241,5 @@ function normalizeXfaChecksumXml(xml) {
 }
 
 export const EXPECTED_TEMPLATE_SHA256 = '21b8aed683a7a770dc7cba65ec6d4221fe7c1be50040786d894d02e34fbd571b';
+// Official default from Header.SubmitUrl in this exact production template.
+export const EXPECTED_SUBMIT_URL = 'https://bsaefiling.fincen.gov/NoRegFilerUpload';
