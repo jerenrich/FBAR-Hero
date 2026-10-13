@@ -4,7 +4,7 @@ Run scenario-audit-test.cjs first. --record keeps characterization mismatches;
 the normal run requires positive cases to validate and preserve all data through
 save/reopen, and negative cases to fail. Never signs or submits a filing.
 """
-import hashlib, json, subprocess, time, sys, xml.etree.ElementTree as ET
+import collections, hashlib, json, subprocess, time, sys, xml.etree.ElementTree as ET
 from adobe_dob_test import ROOT, APP, on_doc, wait_for_doc, run_js
 from verify_reader_handoff import read_packets, leaves
 
@@ -21,6 +21,23 @@ finally{c.VALIDATING=false;c.SIGNING=false;c.ERRORS=[];c.WARNINGS=[];}"""
 def values(packets):
     root = ET.fromstring(packets['datasets']).find('{http://www.xfa.org/schema/xfa-data/1.0/}data')[0]
     return leaves(root)
+
+def record_counts(packets):
+    root = ET.fromstring(packets['datasets']).find('{http://www.xfa.org/schema/xfa-data/1.0/}data')[0]
+    repeated = {'FinAcctOwnedSeparately', 'FinAcctOwnedJointly', 'NoFinInterestFinAcctOwned',
+                'ConsolidatedAcct', 'NoInterestAcctOwner', 'ConsolidateAcctOwner'}
+    result = {}
+    def visit(node, path):
+        counts = collections.Counter(c.tag for c in node)
+        for tag, count in counts.items():
+            if tag.split('}')[-1] in repeated:
+                result[str(path + ((tag,),))] = count
+        indices = collections.Counter()
+        for child in node:
+            visit(child, path + ((child.tag, indices[child.tag]),))
+            indices[child.tag] += 1
+    visit(root, ((root.tag, 0),))
+    return result
 
 reports = json.loads((OUT / 'adobe-progress.json').read_text()) if '--resume' in sys.argv and (OUT / 'adobe-progress.json').exists() else []
 country_action = """var country=d.xfa.form.resolveNode('BSAForm.Signature.thirdParty.CitySub.Country'),original=country.rawValue;
@@ -50,6 +67,7 @@ for case in cases:
     source_hash = hashlib.sha256(source.read_bytes()).hexdigest() if not case['writerError'] else None
     previous = next((r for r in reports if r['name'] == case['name']), None)
     expected = {key:case.get(key) for key in ['expectedValid', 'expectedNativeValid', 'expectedDataLoss', 'readerAction']}
+    expected['comparisonVersion'] = 3
     if case.get('readerAction'):
         expected['readerActionVersion'] = 2
     if previous and previous.get('sourceSha256') == source_hash and previous.get('expectedCase') == expected:
@@ -73,10 +91,15 @@ for case in cases:
         if case.get('readerAction') == 'preparer-country-exit':
             on_doc(saved.name, country_action)
         after = json.loads(on_doc(saved.name, snapshot))
+        assert not after['signed'], 'Reopened synthetic scenario unexpectedly signed'
         original, actual = read_packets(source), read_packets(saved)
         expected_values, actual_values = values(original), values(actual)
-        changed = [str(k) for k, v in expected_values.items() if v and actual_values.get(k) != v]
+        # Compare both directions, including values added into formerly empty
+        # fields. Only absent versus empty leaves are equivalent.
+        changed = [str(k) for k in expected_values.keys() | actual_values.keys()
+                   if expected_values.get(k, '') != actual_values.get(k, '')]
         report.update(reopened=after, differentInputPaths=changed,
+                      recordCountsPreserved=record_counts(original) == record_counts(actual),
                       templatePreserved=original['template'] == actual['template'],
                       populatedValues=sum(bool(v) for v in expected_values.values()))
         on_doc(saved.name, 'd.closeDoc(true);return "closed";')
@@ -93,7 +116,7 @@ for r in reports:
         continue
     valid = r['native']['valid'] and not r['native']['errors']
     if valid != r.get('expectedNativeValid', r['expectedValid']) or (r.get('expectedDataLoss') and not r.get('differentInputPaths')) or (r['expectedValid'] and
-       (r.get('differentInputPaths') or not r.get('templatePreserved') or
+       (r.get('differentInputPaths') or not r.get('recordCountsPreserved') or not r.get('templatePreserved') or
         not r.get('reopened', {}).get('valid') or r.get('reopened', {}).get('errors'))):
         mismatches.append(r['name'])
     if r['name'] == 'late-other-description' and r['native']['lateNarrativePresence'] != 'visible':

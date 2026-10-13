@@ -73,6 +73,23 @@ Reproduce with `node prototype/scripts/scenario-audit-test.cjs`, then `python3 p
 
 These results establish targeted compatibility with this template and Reader version, including the documented country step. They do not establish government acceptance for every scenario, exhaustive visual fidelity, or validity of every possible real-world filing. Automated QA never submits a filing.
 
+### Second review — October 13, 2026
+
+A second code and native Reader review found additional gaps beyond the original 73 cases:
+
+- The native form checks dates against the computer's current local date. Save Final now rejects future birth dates and reporting years while accepting today and the current year.
+- Changing an account from Other to Bank or Securities leaves an old description that Reader clears. Save Final now reports this for all four account categories.
+- Reader trims surrounding whitespace and collapses line breaks in certain text fields. The editor derives those field paths from the unchanged trusted template and blocks Final until the user reviews the text. Internal spaces remain supported, including in foreign identification numbers.
+- A foreign identification record with a leftover US TIN type fails native validation. The editor now identifies that conflict.
+- A self-employed preparer must leave firm details blank under the form's own instructions, even though native validation permits the inconsistency. Save Final now enforces the instruction.
+- The preparer initialization clears a territory state even though the same territory state is supported for the filer. The editor now reports this preparer-specific conflict.
+
+The native test now compares values in both directions, checks repeated-account and owner counts, and verifies the reopened form remains unsigned. This closes a test gap: the original native test checked preservation of previously populated inputs but could miss an added value or an empty repeated record. Seven actual Save Draft downloads are reopened to verify that flagged entries and leading-zero amounts remain exactly editable.
+
+The matrix now contains 108 cases: 59 checked exports and 49 rejected inputs. All browser and native classifications passed (107 PDFs plus the foreign-country case blocked by the writer), along with seven draft round trips and 126 native amount checks. Amount boundaries cover zero, the largest 15-digit amount, leading zeroes and a 16-digit amount in all four account categories. Reader accepts the overlong test amount during validation and retains its datasets value, but its actual numeric field displays zero. The app's existing 15-digit limit already blocks this case. `adobe_amount_test.py` independently compares native raw and displayed amounts with the input, both on export and after Reader save/reopen. Leading zeroes retain their numeric meaning and remain allowed. Run this script after the browser and native scenario scripts.
+
+These checks still use the pinned public template. Full calendar birth dates are supported; the legacy form's partial-date special responses are outside the editor's current support. No synthetic filing is submitted, and the tests do not certify every combination of government processing rules.
+
 ## Remaining qualification
 
 Reader signing is verified for the 20-account synthetic writer fixture above. A later automation attempt to repeat signing on an imported draft was unreliable when multiple Adobe documents and modal dialogs were active; it did not yield a second verified signed artifact. The branch results above are unsigned native validation/save checks. Use the normal desktop acknowledgment flow, rather than programmatic signing, in the product.

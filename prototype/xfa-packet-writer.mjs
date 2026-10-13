@@ -144,8 +144,13 @@ export function addressRules(templateXml) {
   const postalRequiredCountries=[...postalFunction.matchAll(/countryValue\s*==\s*"([A-Z]{2})"/g)].map(match=>match[1]);
   const territoryEvent=[...template.getElementsByTagName('*')].find(n=>n.localName==='field'&&n.getAttribute('name')==='CountryIndividual')?.textContent||'';
   const territoryStates=[...new Set([...territoryEvent.matchAll(/this\.rawValue\s*==\s*"([A-Z]{2}) "/g)].map(m=>m[1]))];
+  // These bound fields trim surrounding whitespace and collapse line breaks
+  // during native validation. Expose their exact catalog paths to the editor.
+  const normalizedTextFields=[...template.getElementsByTagName('*')].filter(n=>n.localName==='field'&&
+    [...n.getElementsByTagName('*')].some(s=>s.localName==='script'&&/BSACommon\.removeChar\(this\.rawValue\)/.test(s.textContent)))
+    .map(n=>{const path=[];for(let p=n;p&&p!==template.documentElement;p=p.parentElement)if(p.hasAttribute('name'))path.unshift(p.getAttribute('name'));return '/#template/'+path.join('/');});
   if(!countries?.length||!foreignIdCountries?.length||!states||!postalRequiredCountries.length||!territoryStates.length)throw new Error('Invalid trusted address validation data');
-  return {countries,foreignIdCountries,states,territoryStates,postalRequiredCountries,validationPatterns:{
+  return {countries,foreignIdCountries,states,territoryStates,postalRequiredCountries,normalizedTextFields,validationPatterns:{
     date:literal(common,'DATE_REGEX'),amendment:literal(common,'DCN_REGEX'),usTin:literal(common,'SSN_REGEX'),
     invalidUsTin:literal(bsa,'SSN_REGEX_INVALID'),foreignTin:literal(bsa,'SSN_FOREIGN_REGEX'),invalidForeignTin:literal(bsa,'TIN_FOREIGN_REGEX_INVALID'),
     phone:literal(bsa,'FULL_PH_REGEX'),invalidPhone:literal(bsa,'PH_REGEX_INVALID'),phoneExtension:literal(bsa,'PH_EXT_REGEX'),

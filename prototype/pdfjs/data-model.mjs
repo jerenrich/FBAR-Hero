@@ -221,6 +221,8 @@ export function validate(model,{detailed=false}={}){
    const limit=meta.value_constraints?.text?.maxChars;
    if(limit&&v.length>Number(limit))add(path,`exceeds ${limit} characters`,n);
    if(/[^\x20-\x7e\r\n]/.test(v))add(path,'contains text outside the supported ASCII character set',n);
+   if((v!==v.trim()||/[\r\n]/.test(v))&&meta.template_fields.some(p=>model.catalog.addressRules?.normalizedTextFields?.includes(p)))
+    add(path,'use a single line without leading or trailing spaces; Reader changes this text',n);
    if(meta.enum.length&&v&&!meta.enum.some(e=>(e.xml_value||'')===v))add(path,'select a listed value',n);
    return;
   }
@@ -263,14 +265,19 @@ export function validate(model,{detailed=false}={}){
  for(const p of ['EFileSubmissionInformation/FilingName','FilerInformation/CalendarYear','FilerInformation/TypeOfFiler','FilerInformation/LastNameOrNameOfOrg','FilerInformation/Address/Address','FilerInformation/Address/City','FilerInformation/Address/Country','FilerInformation/FIInterestIn25OrMore','FilerInformation/SigAuth25OrMore'])req(r,p);
  const year=value(r,'FilerInformation/CalendarYear');
  if(!/^\d{4}$/.test(year)||(patterns&&!matches(patterns.date,year+'-01-01')))add('Report year','enter a year from 1900 to 2099');
+ const today=new Date();
+ if(/^\d{4}$/.test(year)&&Number(year)>today.getFullYear())add('Report year','the report year cannot be in the future');
  if(value(r,'FilerInformation/TypeOfFiler')==='A')for(const p of ['FilerInformation/FirstName','FilerInformation/DOB'])req(r,p);
  const dob=value(r,'FilerInformation/DOB');
  if(dob&&!isValidDob(dob))add('FilerInformation/DOB','enter a valid date from 1900 onward');
+ else if(dob&&dob.slice(4)+dob.slice(0,4)>`${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`)
+  add('FilerInformation/DOB','the date of birth cannot be in the future');
  address(child(r,'FilerInformation'),'Filer',{required:true});
  const issue=value(r,'FilerInformation/ForeignId/IssueCountry');
  if(issue&&addressRules&&!addressRules.foreignIdCountries.some(pair=>pair[1]===issue))add('FilerInformation/ForeignId/IssueCountry','select a listed foreign issuing country code');
  const foreignType=value(r,'FilerInformation/ForeignId/ForeignIdType');
  if(!value(r,'FilerInformation/TIN')){
+  if(value(r,'FilerInformation/TINTYPE'))add('FilerInformation/TINTYPE','clear the US tax ID type when using foreign identification');
   req(r,'FilerInformation/ForeignId/ForeignIdType');
   if(foreignType==='A'||foreignType==='B')for(const p of ['FilerInformation/ForeignId/IdNumber','FilerInformation/ForeignId/IssueCountry'])req(r,p);
  }else {
@@ -302,6 +309,7 @@ export function validate(model,{detailed=false}={}){
   if(unknown&&max)add(label,'clear the maximum value when unknown is selected',field(a,'MaximumAccntValue'));
   if(!unknown&&!/^\d{1,15}$/.test(max))add(label,'maximum value must be whole US dollars with at most 15 digits',field(a,'MaximumAccntValue'));
   if(value(a,'AccountType')==='Z')req(a,'OtherDesc',label+' other description');
+  else if(value(a,'OtherDesc'))add(label+' other description','clear the other account description for the selected account type; Reader disables it',field(a,'OtherDesc'));
   if(branch==='FinAcctOwnedJointly'&&(!/^\d{1,3}$/.test(value(a,'NOofJointOwners'))||Number(value(a,'NOofJointOwners'))<1))add(label,'enter the number of joint owners excluding the filer',field(a,'NOofJointOwners'));
   const owner=ownerNames[branch];
   if(owner)for(const o of [...a.children].filter(n=>n.localName===owner)){
@@ -320,10 +328,14 @@ export function validate(model,{detailed=false}={}){
   const preparer=child(r,'PaidPreparerInformation');
   for(const p of ['LastName','FirstName','TIN','TINTYPE','TelephoneNumber','Address/Address','Address/City','Address/Country'])req(preparer,p,'Preparer '+p);
   address(preparer,'Preparer',{required:true});
+  if(value(preparer,'Address/State')&&addressRules&&!addressRules.postalRequiredCountries.includes(value(preparer,'Address/Country')))
+   add('Preparer state/province','clear the state outside the US, Canada and Mexico; Reader disables it',field(preparer,'Address/State'));
   tin(preparer,'TIN','TINTYPE','Preparer TIN');
   if(value(preparer,'SelfEmployed')!=='X'){
    for(const p of ['FirmName','EIN','EINType'])req(preparer,p,'Preparer '+p);
    tin(preparer,'EIN','EINType','Preparer EIN');
+  }else{
+   for(const p of ['FirmName','EIN','EINType'])if(value(preparer,p))add('Preparer '+p,'leave firm details blank when self employed is selected, as the official form instructs',field(preparer,p));
   }
   const phone=value(preparer,'TelephoneNumber'),extension=value(preparer,'TelephoneExt');
   if(patterns&&phone&&(!matches(patterns.phone,phone)||matches(patterns.invalidPhone,phone)))add('Preparer TelephoneNumber','enter five to 16 digits for the phone number',field(preparer,'TelephoneNumber'));

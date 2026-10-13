@@ -10,7 +10,7 @@ const {createServer}=require('../pdfjs/server.cjs');
   const context=await browser.newContext(),page=await context.newPage(),external=[];
   await context.route('**/*',r=>r.request().url().startsWith(origin)?r.continue():(external.push('blocked'),r.abort()));
   await page.goto(origin);await page.waitForFunction(()=>window.experiment);await page.evaluate(()=>experiment.generate(1));
-  const cases=await page.evaluate(async()=>{
+  const cases=await page.evaluate(async(recordOnly)=>{
    const dm=await import('/pdfjs/data-model.mjs'),writer=await import('/xfa-packet-writer.mjs');
    const blank=new Uint8Array(await(await fetch('/fixtures/official-blank.pdf')).arrayBuffer());
    const {packets}=await writer.inspectXfa(PDFLib,blank),text=p=>new TextDecoder().decode(p.bytes);
@@ -25,6 +25,28 @@ const {createServer}=require('../pdfjs/server.cjs');
    const entity=(m,type='D')=>{for(const[p,v]of Object.entries({'FilerInformation/TypeOfFiler':type,'FilerInformation/TINTYPE':'A','FilerInformation/FirstName':'','FilerInformation/DOB':''}))set(m.root,p,v);};
    const definitions=[];const add=(name,expectedValid,mutate,extra={})=>definitions.push({name,expectedValid,mutate,...extra});
    add('baseline',true,()=>{});
+   add('dob-future',false,m=>set(m.root,'FilerInformation/DOB','01012099'));
+   add('year-future',false,m=>set(m.root,'FilerInformation/CalendarYear','2099'));
+   add('year-current',true,m=>set(m.root,'FilerInformation/CalendarYear',String(new Date().getFullYear())));
+   const dateCode=d=>String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+d.getFullYear();
+   add('dob-today',true,m=>set(m.root,'FilerInformation/DOB',dateCode(new Date())));
+   add('dob-tomorrow',false,m=>{const d=new Date();d.setDate(d.getDate()+1);set(m.root,'FilerInformation/DOB',dateCode(d));});
+   add('filer-name-padded',false,m=>set(m.root,'FilerInformation/LastNameOrNameOfOrg',' SYNTHETIC '),{expectedNativeValid:true,expectedDataLoss:true});
+   add('account-name-padded',false,m=>set(dm.records(m,'FinAcctOwnedSeparately')[0],'FinInstName',' SYNTHETIC BANK '),{expectedNativeValid:true,expectedDataLoss:true});
+   add('foreign-stale-us-type',false,m=>{foreign(m);set(m.root,'FilerInformation/TINTYPE','B');});
+   add('foreign-number-spaces',true,m=>{foreign(m);set(m.root,'FilerInformation/ForeignId/IdNumber','TEST ID');});
+   add('preparer-self-employed-stale-firm',false,m=>{const p=prep(m);set(p,'FirmName','SYNTHETIC FIRM');set(p,'EIN','321546786');set(p,'EINType','A');},{expectedNativeValid:true});
+   add('preparer-territory-state',false,m=>addr(prep(m),'PR','PR','00901'),{expectedNativeValid:true,expectedDataLoss:true});
+   for(const b of dm.branches){
+    const prepare=m=>{if(b==='ConsolidatedAcct')entity(m);return b==='FinAcctOwnedSeparately'?acct(m,b):owner(m,b).parentElement;};
+    add('stale-account-description-'+b,false,m=>set(prepare(m),'OtherDesc','SYNTHETIC DESCRIPTION'),{expectedNativeValid:true,expectedDataLoss:true});
+    add('other-account-description-'+b,true,m=>{const a=prepare(m);set(a,'AccountType','Z');set(a,'OtherDesc','SYNTHETIC DESCRIPTION');});
+    for(const [suffix,amount,expectedValid,extra]of [
+     ['zero','0',true,{}],['largest','999999999999999',true,{}],
+     ['too-long','1000000000000000',false,{expectedNativeValid:true,expectedAmountMismatch:true}],
+     ['leading-zero','00010001',true,{}],
+    ])add('amount-'+suffix+'-'+b,expectedValid,m=>set(prepare(m),'MaximumAccntValue',amount),extra);
+   }
    add('amendment-known',true,m=>{set(m.root,'FilerInformation/AmendToPriorReports','X');set(m.root,'FilerInformation/DocumentControlNumber','31000000000001');});
    add('amendment-unknown',true,m=>{set(m.root,'FilerInformation/AmendToPriorReports','X');set(m.root,'FilerInformation/DocumentControlNumber','00000000000000');});
    add('amendment-letters',false,m=>{set(m.root,'FilerInformation/AmendToPriorReports','X');set(m.root,'FilerInformation/DocumentControlNumber','INVALID');});
@@ -93,7 +115,7 @@ const {createServer}=require('../pdfjs/server.cjs');
    add('consolidated-two-owners',true,m=>{entity(m);const o=owner(m,'ConsolidatedAcct');const a=o.parentNode,other=dm.newRecord(m,'ConsolidatedAcct/ConsolidateAcctOwner');for(const[p,v]of Object.entries({CorporateName:'SYNTHETIC SECOND OWNER',TIN:'FOREIGN456',TINTYPE:'C'}))set(other,p,v);addr(other,'CA','ON','M5V3L9');a.append(other);});
    add('consolidated-foreign-preparer',true,m=>{entity(m);owner(m,'ConsolidatedAcct','C','FOREIGN456');const n=prep(m,{type:'C',tin:'FOREIGN123',self:false});set(n,'FirmName','SYNTHETIC FIRM');set(n,'EIN','FOREIGN789');set(n,'EINType','C');});
    const result=[];
-   for(const {name,expectedValid,mutate,expectedNativeValid,expectedDataLoss,readerAction}of definitions){
+   for(const {name,expectedValid,mutate,expectedNativeValid,expectedDataLoss,expectedAmountMismatch,readerAction}of definitions){
     const m=base();mutate(m);const errors=dm.validate(m);let bytes=null,writerError='';
     try{bytes=Array.from(await writer.fillBlankTemplate(PDFLib,blank,dm.serialize(m),{restoreUnboundDob:true,restoreAllAddresses:true}));}catch(e){writerError=e.message;}
     let checkedExport=false;
@@ -103,13 +125,13 @@ const {createServer}=require('../pdfjs/server.cjs');
      const form=dm.xml(text(decoded.packets.form));
      if(await writer.xfaFormChecksum(text(decoded.packets.template),text(decoded.packets.datasets))!==form.documentElement.getAttribute('checksum'))throw Error(name+': form checksum mismatch');
      await experiment.importPdf(new Uint8Array(bytes));
-     try{await experiment.buildDraft();checkedExport=true;}catch(e){if(expectedValid)throw e;}
+     try{await experiment.buildDraft();checkedExport=true;}catch(e){if(expectedValid&&!recordOnly)throw e;}
     }
-    if(checkedExport!==expectedValid)throw Error(name+': checked export did not enforce audited validation');
-    result.push({name,expectedValid,expectedNativeValid,expectedDataLoss,readerAction,appValid:!errors.length,checkedExport,errors,writerError,bytes});
+    if(checkedExport!==expectedValid&&!recordOnly)throw Error(name+': checked export did not enforce audited validation');
+    result.push({name,expectedValid,expectedNativeValid,expectedDataLoss,expectedAmountMismatch,readerAction,appValid:!errors.length,checkedExport,errors,writerError,bytes});
    }
    return result;
-  });
+  },process.argv.includes('--record'));
   for(const c of cases){if(c.bytes)fs.writeFileSync(path.join(out,'SYNTHETIC-'+c.name+'.pdf'),Buffer.from(c.bytes));delete c.bytes;}
   // This original-form initialization quirk requires a concrete Reader step.
   await page.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),Array.from(fs.readFileSync(path.join(out,'SYNTHETIC-preparer-uk-no-postal.pdf'))));
@@ -120,9 +142,19 @@ const {createServer}=require('../pdfjs/server.cjs');
   await page.locator('#export-close').click();
   await page.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),Array.from(fs.readFileSync(path.join(out,'SYNTHETIC-baseline.pdf'))));
   assert(await page.locator('#preparer-country-help').isHidden());
+  const draftRoundTrips=['dob-future','filer-name-padded','foreign-stale-us-type','preparer-self-employed-stale-firm',
+   'preparer-territory-state','stale-account-description-FinAcctOwnedSeparately','amount-leading-zero-FinAcctOwnedSeparately'];
+  for(const name of draftRoundTrips){
+   await page.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),Array.from(fs.readFileSync(path.join(out,`SYNTHETIC-${name}.pdf`))));
+   const snapshot=()=>page.evaluate(async()=>{const dm=await import('/pdfjs/data-model.mjs');return dm.serialize(experiment.getModel());});
+   const before=await snapshot(),download=page.waitForEvent('download');await page.locator('#save-work').click();
+   const saved=path.join(out,`SYNTHETIC-DRAFT-${name}.pdf`);await(await download).saveAs(saved);
+   await page.evaluate(bytes=>experiment.importPdf(new Uint8Array(bytes)),Array.from(fs.readFileSync(saved)));
+   assert.equal(await snapshot(),before,name+': Save Draft changed unfinished entries');
+  }
   assert.deepEqual(external,[]);
   const mismatches=cases.filter(c=>c.appValid!==c.expectedValid);
-  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({cases,mismatches:mismatches.map(c=>c.name),externalRequests:external},null,2)+'\n');
+  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({cases,mismatches:mismatches.map(c=>c.name),draftRoundTrips,externalRequests:external},null,2)+'\n');
   console.log(JSON.stringify({cases:cases.length,mismatches:mismatches.map(c=>c.name),writerBlocked:cases.filter(c=>c.writerError).map(c=>c.name)}));
   if(!process.argv.includes('--record'))assert.deepEqual(mismatches,[],'App validation differs from audited official rules');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
