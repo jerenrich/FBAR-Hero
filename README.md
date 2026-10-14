@@ -28,9 +28,8 @@ FBAR Hero is a prototype for the tested FBAR PDF template. It creates an **unsig
 ## More information
 
 - [Cloudflare Pages deployment and app structure](CLOUDFLARE.md)
-- [How to use the local workflow](output/fbar-local-workflow.md)
 - [Prototype setup and tests](prototype/README.md)
-- [Current quality review and limits](output/fbar-quality-review.md)
+- [Local workflow, current verification and limits](output/fbar-local-workflow.md)
 - [Application specification](output/fbar-app-specification.md)
 - [Field dictionary](output/fbar-field-dictionary.md)
 - [Technical experiments](output/fbar-pdfjs-feasibility.md)
